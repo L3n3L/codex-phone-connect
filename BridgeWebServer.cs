@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public sealed class BridgeWebServer : IAsyncDisposable
 {
@@ -106,7 +106,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Codex Bridge</title>
+          <title>Codex Phone Connect</title>
           <style>
             :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
             * { box-sizing: border-box; }

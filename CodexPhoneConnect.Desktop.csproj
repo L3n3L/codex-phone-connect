@@ -6,8 +6,8 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>CodexBridge</AssemblyName>
-    <RootNamespace>CodexBridge</RootNamespace>
+    <AssemblyName>CodexPhoneConnect</AssemblyName>
+    <RootNamespace>CodexPhoneConnect</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 

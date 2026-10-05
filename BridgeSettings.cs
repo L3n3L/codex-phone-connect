@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public sealed class BridgeSettings
 {
@@ -30,7 +30,7 @@ public sealed class BridgeSettingsStore
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         RootDirectory = string.IsNullOrWhiteSpace(root)
             ? Path.Combine(AppContext.BaseDirectory, "settings")
-            : Path.Combine(root, "CodexBridge");
+            : Path.Combine(root, "CodexPhoneConnect");
         FilePath = Path.Combine(RootDirectory, "settings.json");
     }
 
@@ -40,6 +40,27 @@ public sealed class BridgeSettingsStore
 
     public BridgeSettings Load()
     {
+        if (!File.Exists(FilePath))
+        {
+            var legacyRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CodexBridge");
+            var legacyFile = Path.Combine(legacyRoot, "settings.json");
+            if (File.Exists(legacyFile))
+            {
+                try
+                {
+                    Directory.CreateDirectory(RootDirectory);
+                    File.Copy(legacyFile, FilePath);
+                    BridgeLog.Info("Settings", "已迁移旧版 Codex Bridge 配置");
+                }
+                catch (Exception exception)
+                {
+                    BridgeLog.Warning("Settings", $"迁移旧版配置失败：{exception.Message}");
+                }
+            }
+        }
+
         if (!File.Exists(FilePath))
         {
             BridgeLog.Info("Settings", "未找到配置文件，使用空配置");

@@ -1,4 +1,4 @@
-# Codex Bridge Desktop
+# Codex Phone Connect
 
 原生 Windows 桌面桥接程序，使用 C#、.NET 8 和 WPF。
 
@@ -21,8 +21,8 @@ Codex 输入注入需要用户先在本机完成两个坐标校准，再进行�
 ## 构建
 
 ```powershell
-dotnet build .\CodexBridge.Desktop.csproj
-dotnet run --project .\CodexBridge.Desktop.csproj
+dotnet build .\CodexPhoneConnect.Desktop.csproj
+dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 ```
 
 详细边界见 [docs/integration-review.md](docs/integration-review.md)。

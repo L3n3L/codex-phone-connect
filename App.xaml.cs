@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public partial class App : Application
 {

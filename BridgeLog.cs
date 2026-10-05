@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public static class BridgeLog
 {
@@ -28,7 +28,7 @@ public static class BridgeLog
         }
         catch (Exception exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Codex Bridge log initialization failed: {exception}");
+            System.Diagnostics.Debug.WriteLine($"Codex Phone Connect log initialization failed: {exception}");
         }
     }
 
@@ -68,7 +68,7 @@ public static class BridgeLog
         }
         catch (Exception exception)
         {
-            System.Diagnostics.Debug.WriteLine($"Codex Bridge log write failed: {exception}");
+            System.Diagnostics.Debug.WriteLine($"Codex Phone Connect log write failed: {exception}");
         }
 
         System.Diagnostics.Debug.Write(line);
@@ -93,7 +93,7 @@ public static class BridgeLog
 
         for (var level = 0; level < 4 && candidate is not null; level++)
         {
-            if (File.Exists(Path.Combine(candidate.FullName, "CodexBridge.Desktop.csproj")))
+            if (File.Exists(Path.Combine(candidate.FullName, "CodexPhoneConnect.Desktop.csproj")))
             {
                 return Path.Combine(candidate.FullName, "logs");
             }

@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public sealed record BridgeJob(string JobId, string Text);
 

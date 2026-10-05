@@ -1,4 +1,4 @@
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public sealed record SendJobRequest(string Text, string? RequestId, string? Token);
 

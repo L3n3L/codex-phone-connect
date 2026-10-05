@@ -9,7 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using QRCoder;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public partial class MainWindow : Window
 {

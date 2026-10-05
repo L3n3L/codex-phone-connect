@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 
-namespace CodexBridge;
+namespace CodexPhoneConnect;
 
 public sealed class CodexInputAdapter
 {
