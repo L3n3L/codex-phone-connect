@@ -154,6 +154,7 @@
                                Style="{StaticResource SecondaryTextStyle}"
                                VerticalAlignment="Center" />
                     <Button Grid.Column="1"
+                            x:Name="TestButton"
                             Content="测试"
                             Width="64"
                             Height="32"
@@ -161,6 +162,7 @@
                             IsEnabled="False"
                             Margin="0,0,8,0" />
                     <Button Grid.Column="2"
+                            x:Name="SaveButton"
                             Content="保存"
                             Width="64"
                             Height="32"

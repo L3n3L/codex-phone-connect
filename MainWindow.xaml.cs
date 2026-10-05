@@ -19,15 +19,19 @@ public partial class MainWindow : Window
     private const uint GaRoot = 2;
 
     private readonly BridgeWebServer _server = new(Port);
+    private readonly BridgeSettingsStore _settingsStore = new();
+    private readonly CodexInputAdapter _inputAdapter = new();
+    private readonly BridgeJobQueue _jobQueue = new();
+    private BridgeSettings _settings = new();
     private LowLevelMouseProc? _mouseProc;
     private nint _mouseHook;
     private CalibrationTarget? _pendingTarget;
-    private CalibrationPoint? _inputPoint;
-    private CalibrationPoint? _sendPoint;
 
     public MainWindow()
     {
         InitializeComponent();
+        _settings = _settingsStore.Load();
+        UpdateCalibrationUi();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
         BridgeLog.Info("UI", "主窗口已创建");
@@ -46,6 +50,7 @@ public partial class MainWindow : Window
             AddressText.Text = address;
             UpdateConnectionQr(address, lanAddress is not null);
             ServerStateText.Text = "服务运行中";
+            _jobQueue.Start(ProcessJobAsync);
             BridgeLog.Info("UI", $"桥接服务已就绪，局域网地址：{address}");
         }
         catch (Exception exception)
@@ -61,6 +66,7 @@ public partial class MainWindow : Window
         RemoveMouseHook();
         try
         {
+            await _jobQueue.DisposeAsync();
             await _server.DisposeAsync();
         }
         catch (Exception exception)
@@ -83,14 +89,28 @@ public partial class MainWindow : Window
 
     private void TestButton_Click(object sender, RoutedEventArgs e)
     {
-        HintText.Text = "测试功能将在输入适配器接入后启用";
-        BridgeLog.Info("UI", "点击测试按钮，但输入适配器尚未接入");
+        var job = new BridgeJob(Guid.NewGuid().ToString("N"), "Codex Bridge 测试消息");
+        if (_jobQueue.Enqueue(job))
+        {
+            HintText.Text = "测试消息已排队";
+            BridgeLog.Info("UI", $"测试消息已排队，jobId={job.JobId}");
+        }
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
-        HintText.Text = "设置已保存";
-        BridgeLog.Info("UI", "点击保存按钮");
+        try
+        {
+            _settingsStore.Save(_settings);
+            HintText.Text = "设置已保存";
+            SaveButton.IsEnabled = false;
+            BridgeLog.Info("UI", "点击保存按钮");
+        }
+        catch (Exception exception)
+        {
+            HintText.Text = "设置保存失败";
+            BridgeLog.Error("Settings", "保存配置失败", exception);
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -122,7 +142,39 @@ public partial class MainWindow : Window
     private void Server_JobReceived(object? sender, SendJobReceivedEventArgs e)
     {
         BridgeLog.Info("Queue", $"任务已交给 UI 层，jobId={e.JobId}，字符数={e.Request.Text.Length}");
-        Dispatcher.Invoke(() => HintText.Text = $"已收到请求 {e.JobId[..8]}");
+        var accepted = _jobQueue.Enqueue(new BridgeJob(e.JobId, e.Request.Text));
+        Dispatcher.BeginInvoke(() => HintText.Text = accepted
+            ? $"已收到请求 {e.JobId[..8]}"
+            : "发送队列不可用");
+    }
+
+    private async Task ProcessJobAsync(BridgeJob job, CancellationToken cancellationToken)
+    {
+        if (!_settings.IsCalibrated)
+        {
+            BridgeLog.Warning("Input", $"任务因未完成校准而跳过，jobId={job.JobId}");
+            await Dispatcher.BeginInvoke(() => HintText.Text = "请先设置输入框和发送按钮");
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.InvokeAsync(
+                    () => _inputAdapter.SendAsync(job.Text, _settings, cancellationToken))
+                .Task
+                .Unwrap();
+            await Dispatcher.BeginInvoke(() => HintText.Text = $"已发送 {job.JobId[..8]}");
+            BridgeLog.Info("Queue", $"任务发送完成，jobId={job.JobId}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            BridgeLog.Warning("Queue", $"任务因程序关闭而取消，jobId={job.JobId}");
+        }
+        catch (Exception exception)
+        {
+            await Dispatcher.BeginInvoke(() => HintText.Text = $"发送失败 {job.JobId[..8]}");
+            BridgeLog.Error("Queue", $"任务发送失败，jobId={job.JobId}", exception);
+        }
     }
 
     private void UpdateConnectionQr(string address, bool isReachableAddress)
@@ -198,6 +250,7 @@ public partial class MainWindow : Window
                     var target = _pendingTarget.Value;
                     BridgeLog.Info("Calibration", $"捕获 Codex 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
                     Dispatcher.BeginInvoke(() => CompleteCalibration(target, point));
+                    return 1;
                 }
                 else
                 {
@@ -223,17 +276,24 @@ public partial class MainWindow : Window
 
         if (target == CalibrationTarget.Input)
         {
-            _inputPoint = point;
-            InputPointText.Text = "已设置";
+            _settings.InputPoint = point;
         }
         else
         {
-            _sendPoint = point;
-            SendPointText.Text = "已设置";
+            _settings.SendPoint = point;
         }
 
+        UpdateCalibrationUi();
         HintText.Text = "";
         BridgeLog.Info("Calibration", $"校准完成，target={target}，x={point.X:F4}，y={point.Y:F4}");
+    }
+
+    private void UpdateCalibrationUi()
+    {
+        InputPointText.Text = _settings.InputPoint is null ? "未设置" : "已设置";
+        SendPointText.Text = _settings.SendPoint is null ? "未设置" : "已设置";
+        TestButton.IsEnabled = _settings.IsCalibrated;
+        SaveButton.IsEnabled = _settings.InputPoint is not null || _settings.SendPoint is not null;
     }
 
     private void RemoveMouseHook()
@@ -285,8 +345,6 @@ public partial class MainWindow : Window
         Input,
         Send,
     }
-
-    private readonly record struct CalibrationPoint(double X, double Y);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PointStruct
