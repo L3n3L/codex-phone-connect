@@ -6,4 +6,5 @@ obj/
 *.userosscache
 *.sln.docstates
 logs/*.log
+release/
 
