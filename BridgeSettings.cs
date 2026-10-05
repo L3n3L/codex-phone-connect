@@ -5,6 +5,10 @@ namespace CodexBridge;
 
 public sealed class BridgeSettings
 {
+    public const int CurrentCoordinateVersion = 2;
+
+    public int CoordinateVersion { get; set; }
+
     public CalibrationPoint? InputPoint { get; set; }
 
     public CalibrationPoint? SendPoint { get; set; }
@@ -46,6 +50,12 @@ public sealed class BridgeSettingsStore
         {
             var json = File.ReadAllText(FilePath);
             BridgeSettings settings = JsonSerializer.Deserialize<BridgeSettings>(json, JsonOptions) ?? new BridgeSettings();
+            if (settings.CoordinateVersion != BridgeSettings.CurrentCoordinateVersion)
+            {
+                BridgeLog.Warning("Settings", $"配置坐标版本过期（{settings.CoordinateVersion}），需要重新校准");
+                return new BridgeSettings();
+            }
+
             BridgeLog.Info("Settings", $"已加载配置，输入框={settings.InputPoint is not null}，发送按钮={settings.SendPoint is not null}");
             return settings;
         }
@@ -58,6 +68,7 @@ public sealed class BridgeSettingsStore
 
     public void Save(BridgeSettings settings)
     {
+        settings.CoordinateVersion = BridgeSettings.CurrentCoordinateVersion;
         Directory.CreateDirectory(RootDirectory);
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         File.WriteAllText(FilePath, json);

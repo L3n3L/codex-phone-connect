@@ -239,14 +239,19 @@ public partial class MainWindow : Window
                 using var process = Process.GetProcessById((int)processId);
                 if (string.Equals(process.ProcessName, "ChatGPT", StringComparison.OrdinalIgnoreCase))
                 {
-                    var clientTopLeft = new PointStruct { X = 0, Y = 0 };
-                    ClientToScreen(targetWindow, ref clientTopLeft);
-                    GetClientRect(targetWindow, out var clientRect);
+                    var clientPoint = mouseData.Point;
+                    if (!ScreenToClient(targetWindow, ref clientPoint)
+                        || !GetClientRect(targetWindow, out var clientRect))
+                    {
+                        BridgeLog.Warning("Calibration", "无法将屏幕坐标转换为 Codex 客户区坐标");
+                        return CallNextHookEx(_mouseHook, code, wParam, lParam);
+                    }
+
                     var width = Math.Max(1, clientRect.Right - clientRect.Left);
                     var height = Math.Max(1, clientRect.Bottom - clientRect.Top);
                     var point = new CalibrationPoint(
-                        (double)(mouseData.Point.X - clientTopLeft.X) / width,
-                        (double)(mouseData.Point.Y - clientTopLeft.Y) / height);
+                        (double)clientPoint.X / width,
+                        (double)clientPoint.Y / height);
                     var target = _pendingTarget.Value;
                     BridgeLog.Info("Calibration", $"捕获 Codex 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
                     Dispatcher.BeginInvoke(() => CompleteCalibration(target, point));
@@ -397,6 +402,10 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ClientToScreen(nint handle, ref PointStruct point);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ScreenToClient(nint handle, ref PointStruct point);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -109,18 +109,24 @@ public sealed class CodexInputAdapter
 
     private static void ClickClientPoint(nint window, CalibrationPoint point)
     {
-        var clientPoint = new PointStruct { X = 0, Y = 0 };
-        if (!ClientToScreen(window, ref clientPoint) || !GetClientRect(window, out var clientRect))
+        if (!GetClientRect(window, out var clientRect))
         {
             throw new InvalidOperationException("无法读取 Codex 客户区位置");
         }
 
         var width = Math.Max(1, clientRect.Right - clientRect.Left);
         var height = Math.Max(1, clientRect.Bottom - clientRect.Top);
-        var x = clientPoint.X + (int)Math.Round(Math.Clamp(point.X, 0, 1) * width);
-        var y = clientPoint.Y + (int)Math.Round(Math.Clamp(point.Y, 0, 1) * height);
+        var clientPoint = new PointStruct
+        {
+            X = (int)Math.Round(Math.Clamp(point.X, 0, 1) * width),
+            Y = (int)Math.Round(Math.Clamp(point.Y, 0, 1) * height),
+        };
+        if (!ClientToScreen(window, ref clientPoint))
+        {
+            throw new InvalidOperationException("无法将 Codex 客户区坐标转换为屏幕坐标");
+        }
 
-        if (!SetCursorPos(x, y))
+        if (!SetCursorPos(clientPoint.X, clientPoint.Y))
         {
             throw new InvalidOperationException("无法移动鼠标到 Codex 目标位置");
         }
