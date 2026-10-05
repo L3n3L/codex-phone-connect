@@ -166,7 +166,6 @@
                             Content="保存"
                             Width="64"
                             Height="32"
-                            Style="{StaticResource PrimaryButtonStyle}"
                             Click="SaveButton_Click"
                             IsEnabled="False" />
                 </Grid>
