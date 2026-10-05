@@ -30,11 +30,13 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
+        BridgeLog.Info("UI", "主窗口已创建");
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _server.JobReceived += Server_JobReceived;
+        BridgeLog.Info("UI", "主窗口已加载，开始启动桥接服务");
         try
         {
             await _server.StartAsync();
@@ -44,37 +46,51 @@ public partial class MainWindow : Window
             AddressText.Text = address;
             UpdateConnectionQr(address, lanAddress is not null);
             ServerStateText.Text = "服务运行中";
+            BridgeLog.Info("UI", $"桥接服务已就绪，局域网地址：{address}");
         }
         catch (Exception exception)
         {
             ServerStateText.Text = $"服务启动失败：{exception.Message}";
+            BridgeLog.Error("UI", "桥接服务启动失败", exception);
         }
     }
 
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        BridgeLog.Info("UI", "开始关闭主窗口");
         RemoveMouseHook();
-        await _server.DisposeAsync();
+        try
+        {
+            await _server.DisposeAsync();
+        }
+        catch (Exception exception)
+        {
+            BridgeLog.Error("UI", "关闭桥接服务失败", exception);
+        }
     }
 
     private void InputPointButton_Click(object sender, RoutedEventArgs e)
     {
+        BridgeLog.Info("Calibration", "开始设置输入框位置");
         BeginCalibration(CalibrationTarget.Input);
     }
 
     private void SendPointButton_Click(object sender, RoutedEventArgs e)
     {
+        BridgeLog.Info("Calibration", "开始设置发送按钮位置");
         BeginCalibration(CalibrationTarget.Send);
     }
 
     private void TestButton_Click(object sender, RoutedEventArgs e)
     {
         HintText.Text = "测试功能将在输入适配器接入后启用";
+        BridgeLog.Info("UI", "点击测试按钮，但输入适配器尚未接入");
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         HintText.Text = "设置已保存";
+        BridgeLog.Info("UI", "点击保存按钮");
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -105,6 +121,7 @@ public partial class MainWindow : Window
 
     private void Server_JobReceived(object? sender, SendJobReceivedEventArgs e)
     {
+        BridgeLog.Info("Queue", $"任务已交给 UI 层，jobId={e.JobId}，字符数={e.Request.Text.Length}");
         Dispatcher.Invoke(() => HintText.Text = $"已收到请求 {e.JobId[..8]}");
     }
 
@@ -113,6 +130,7 @@ public partial class MainWindow : Window
         if (!isReachableAddress)
         {
             ConnectionQr.Visibility = Visibility.Collapsed;
+            BridgeLog.Warning("UI", "没有找到可用于二维码的局域网地址");
             return;
         }
 
@@ -130,6 +148,7 @@ public partial class MainWindow : Window
 
         ConnectionQr.Source = image;
         ConnectionQr.Visibility = Visibility.Visible;
+        BridgeLog.Info("UI", $"二维码已生成，地址={address}");
     }
 
     private void BeginCalibration(CalibrationTarget target)
@@ -145,10 +164,12 @@ public partial class MainWindow : Window
         if (_mouseHook == 0)
         {
             HintText.Text = "无法开始设置";
+            BridgeLog.Error("Calibration", $"安装全局鼠标钩子失败，target={target}，win32Error={Marshal.GetLastWin32Error()}");
             _pendingTarget = null;
             return;
         }
 
+        BridgeLog.Info("Calibration", $"已安装全局鼠标钩子，等待点击，target={target}");
         Hide();
     }
 
@@ -175,12 +196,18 @@ public partial class MainWindow : Window
                         (double)(mouseData.Point.X - clientTopLeft.X) / width,
                         (double)(mouseData.Point.Y - clientTopLeft.Y) / height);
                     var target = _pendingTarget.Value;
+                    BridgeLog.Info("Calibration", $"捕获 Codex 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
                     Dispatcher.BeginInvoke(() => CompleteCalibration(target, point));
+                }
+                else
+                {
+                    BridgeLog.Debug("Calibration", $"忽略非 Codex 窗口点击，process={process.ProcessName}");
                 }
             }
             catch (ArgumentException)
             {
                 // The clicked process can exit while the hook is processing the click.
+                BridgeLog.Warning("Calibration", "获取点击窗口进程失败，窗口可能已退出");
             }
         }
 
@@ -206,6 +233,7 @@ public partial class MainWindow : Window
         }
 
         HintText.Text = "";
+        BridgeLog.Info("Calibration", $"校准完成，target={target}，x={point.X:F4}，y={point.Y:F4}");
     }
 
     private void RemoveMouseHook()

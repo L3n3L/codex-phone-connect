@@ -11,6 +11,8 @@
 - 局域网 HTTP 服务骨架；
 - `GET /api/status`；
 - `POST /api/jobs`。
+- 服务日志写入 `logs/bridge-YYYY-MM-DD.log`，默认保留 14 天；
+- 日志默认只记录任务 ID 和字符数，不记录手机发送正文。
 
 真正的剪贴板和 Codex 输入注入会在后续阶段接入，并在用户本机验证。
 
@@ -22,3 +24,7 @@ dotnet run --project .\CodexBridge.Desktop.csproj
 ```
 
 详细边界见 [docs/integration-review.md](docs/integration-review.md)。
+
+## 日志
+
+开发运行时日志位于项目根目录的 `logs` 文件夹；发布后如果找不到项目文件，则位于程序旁边的 `logs` 文件夹。日志按天滚动，过期日志自动清理。

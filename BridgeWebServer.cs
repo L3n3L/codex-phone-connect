@@ -28,8 +28,11 @@ public sealed class BridgeWebServer : IAsyncDisposable
     {
         if (_application is not null)
         {
+            BridgeLog.Warning("Http", "重复请求启动 HTTP 服务，已忽略");
             return;
         }
+
+        BridgeLog.Info("Http", $"准备启动 HTTP 服务，监听端口：{_port}");
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -40,22 +43,47 @@ public sealed class BridgeWebServer : IAsyncDisposable
         builder.WebHost.UseUrls($"http://0.0.0.0:{_port}");
         var application = builder.Build();
 
+        application.Use(async (context, next) =>
+        {
+            try
+            {
+                await next(context);
+            }
+            catch (Exception exception)
+            {
+                BridgeLog.Error("Http", $"请求处理失败：{context.Request.Method} {context.Request.Path}", exception);
+                throw;
+            }
+        });
+
         application.MapGet("/", () => Results.Content(PhonePage, "text/html; charset=utf-8"));
         application.MapGet("/api/status", () => Results.Ok(new BridgeStatus("running", true, Address)));
         application.MapPost("/api/jobs", (SendJobRequest request) =>
         {
             if (string.IsNullOrWhiteSpace(request.Text))
             {
+                BridgeLog.Warning("Http", $"拒绝空消息，requestId={request.RequestId ?? "-"}");
                 return Results.BadRequest(new { error = "text_required" });
             }
 
             var jobId = Guid.NewGuid().ToString("N");
-            JobReceived?.Invoke(this, new SendJobReceivedEventArgs(jobId, request));
+            BridgeLog.Info("Http", $"收到发送任务，jobId={jobId}，字符数={request.Text.Length}，requestId={request.RequestId ?? "-"}");
+            try
+            {
+                JobReceived?.Invoke(this, new SendJobReceivedEventArgs(jobId, request));
+            }
+            catch (Exception exception)
+            {
+                BridgeLog.Error("Http", $"任务分发失败，jobId={jobId}", exception);
+                return Results.Problem("任务分发失败");
+            }
+
             return Results.Accepted($"/api/jobs/{jobId}", new SendJobAccepted(jobId, "queued"));
         });
 
         await application.StartAsync(cancellationToken);
         _application = application;
+        BridgeLog.Info("Http", $"HTTP 服务已启动：0.0.0.0:{_port}");
     }
 
     public async ValueTask DisposeAsync()
@@ -65,9 +93,11 @@ public sealed class BridgeWebServer : IAsyncDisposable
             return;
         }
 
+        BridgeLog.Info("Http", "正在停止 HTTP 服务");
         await _application.StopAsync();
         await _application.DisposeAsync();
         _application = null;
+        BridgeLog.Info("Http", "HTTP 服务已停止");
     }
 
     private const string PhonePage = """
