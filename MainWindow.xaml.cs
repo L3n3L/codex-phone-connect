@@ -87,16 +87,6 @@ public partial class MainWindow : Window
         BeginCalibration(CalibrationTarget.Send);
     }
 
-    private void TestButton_Click(object sender, RoutedEventArgs e)
-    {
-        var job = new BridgeJob(Guid.NewGuid().ToString("N"), "Codex Bridge 测试消息");
-        if (_jobQueue.Enqueue(job))
-        {
-            HintText.Text = "测试消息已排队";
-            BridgeLog.Info("UI", $"测试消息已排队，jobId={job.JobId}");
-        }
-    }
-
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -297,7 +287,6 @@ public partial class MainWindow : Window
     {
         InputPointText.Text = _settings.InputPoint is null ? "未设置" : "已设置";
         SendPointText.Text = _settings.SendPoint is null ? "未设置" : "已设置";
-        TestButton.IsEnabled = _settings.IsCalibrated;
         SaveButton.IsEnabled = _settings.InputPoint is not null || _settings.SendPoint is not null;
     }
 
