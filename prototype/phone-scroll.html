@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Codex Bridge · 滑动遥控样本</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --ink: #30322f;
+      --muted: #92958e;
+      --line: #e8e9e4;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    body { min-height: 100svh; overscroll-behavior: none; }
+
+    .remote-field {
+      position: fixed;
+      inset: 0 0 104px;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+
+    .remote-field:active,
+    .remote-field.is-touching { cursor: grabbing; }
+
+    #field-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .field-hint {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 7%;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .05em;
+      text-align: center;
+      opacity: .9;
+      transition: opacity 360ms ease, transform 360ms ease;
+      pointer-events: none;
+    }
+
+    .remote-field.has-used .field-hint {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .connection {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      right: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .connection::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: #6c827f;
+      box-shadow: 0 0 0 4px rgba(108, 130, 127, .13);
+      vertical-align: 1px;
+    }
+
+    .status {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 118px;
+      min-height: 20px;
+      padding: 0 20px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 220ms ease, transform 220ms ease;
+      pointer-events: none;
+    }
+
+    .status.visible { opacity: 1; transform: translateY(0); }
+    .status strong { color: #536d72; font-weight: 500; }
+
+    .composer {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: max(14px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: 0 8px 30px rgba(41, 41, 35, .07);
+      backdrop-filter: blur(14px);
+      touch-action: auto;
+    }
+
+    textarea {
+      flex: 1;
+      min-width: 0;
+      min-height: 42px;
+      max-height: 116px;
+      padding: 10px 11px;
+      border: 0;
+      outline: 0;
+      resize: none;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    textarea::placeholder { color: #aaa9a2; }
+
+    button {
+      min-width: 58px;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    button:active { transform: scale(.96); }
+    button:hover { border-color: #c6c6bf; background: #f7f7f4; }
+
+    @media (min-width: 700px) {
+      .composer { left: 50%; right: auto; width: min(680px, calc(100% - 28px)); transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+  <main id="remote-field" class="remote-field" aria-label="Codex 滑动遥控区">
+    <canvas id="field-canvas"></canvas>
+    <div class="field-hint">上下滑动控制 Codex</div>
+  </main>
+
+  <div class="connection">已连接</div>
+  <div id="status" class="status" aria-live="polite"></div>
+
+  <form id="composer" class="composer">
+    <textarea id="message" rows="1" placeholder="输入要发送给 Codex 的内容"></textarea>
+    <button type="submit">发送</button>
+  </form>
+
+  <script>
+    const field = document.getElementById('remote-field');
+    const canvas = document.getElementById('field-canvas');
+    const context = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    const message = document.getElementById('message');
+    const composer = document.getElementById('composer');
+    const demoOnly = true;
+
+    const TAU = Math.PI * 2;
+    // 两套整体渐变缓慢互相过渡；同一时刻所有粒子共享同一个变色进度。
+    const gradientThemes = [
+      [
+        { at: 0, color: [56, 126, 190] },
+        { at: .38, color: [78, 196, 188] },
+        { at: .68, color: [244, 174, 94] },
+        { at: 1, color: [178, 116, 211] }
+      ],
+      [
+        { at: 0, color: [119, 94, 226] },
+        { at: .38, color: [222, 99, 177] },
+        { at: .68, color: [255, 181, 82] },
+        { at: 1, color: [63, 163, 220] }
+      ]
+    ];
+
+    let width = 0;
+    let height = 0;
+    let pixelRatio = 1;
+    let particles = [];
+    let pointer = { x: 0, y: 0, targetX: 0, targetY: 0, vx: 0, vy: 0, active: false };
+    let startY = null;
+    let lastY = null;
+    let gestureDeltaY = 0;
+    let scrollActivated = false;
+    let pendingScrollDelta = 0;
+    let scrollFlushScheduled = false;
+    let scrollInFlight = false;
+    let gestureId = '';
+    let scrollSequence = 0;
+    let activePointerId = null;
+    let statusTimer = null;
+
+    function seeded(index) {
+      const value = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
+      return value - Math.floor(value);
+    }
+
+    function rgba(color, alpha) {
+      return `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+    }
+
+    function showStatus(text) {
+      status.innerHTML = text;
+      status.classList.add('visible');
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => status.classList.remove('visible'), 1000);
+    }
+
+    function queueScrollDelta(deltaY) {
+      if (demoOnly || !Number.isFinite(deltaY) || deltaY === 0) return;
+      pendingScrollDelta += deltaY;
+      if (scrollFlushScheduled) return;
+      scrollFlushScheduled = true;
+      requestAnimationFrame(flushScrollDelta);
+    }
+
+    async function flushScrollDelta() {
+      scrollFlushScheduled = false;
+      if (scrollInFlight || Math.abs(pendingScrollDelta) < 1) return;
+
+      const deltaY = Math.round(pendingScrollDelta);
+      pendingScrollDelta = 0;
+      scrollInFlight = true;
+      try {
+        const response = await fetch('/api/control/scroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deltaY,
+            requestId: `${gestureId}-${++scrollSequence}`
+          })
+        });
+        if (!response.ok) throw new Error('scroll_failed');
+      } catch (_) {
+        showStatus('电脑暂时没有响应');
+      } finally {
+        scrollInFlight = false;
+        if (Math.abs(pendingScrollDelta) >= 1 && !scrollFlushScheduled) {
+          scrollFlushScheduled = true;
+          requestAnimationFrame(flushScrollDelta);
+        }
+      }
+    }
+
+    function createParticles() {
+      const centerX = width * .5;
+      const centerY = height * .44;
+      const radiusX = Math.min(width * .38, 155);
+      const radiusY = Math.min(height * .31, 220);
+      const count = Math.max(440, Math.min(760, Math.floor(width * 1.7)));
+
+      particles = [];
+      for (let index = 0; index < count; index += 1) {
+        const angle = seeded(index + 1) * TAU;
+        const distance = Math.pow(seeded(index + 91), .64);
+        const edgeSoftness = .84 + seeded(index + 171) * .2;
+        const baseX = centerX + Math.cos(angle) * radiusX * distance * edgeSoftness;
+        const baseY = centerY + Math.sin(angle) * radiusY * distance * edgeSoftness;
+        particles.push({
+          baseX,
+          baseY,
+          x: baseX,
+          y: baseY,
+          vx: 0,
+          vy: 0,
+          offsetX: 0,
+          offsetY: 0,
+          size: .65 + seeded(index + 321) * 1.7,
+          alpha: .38 + seeded(index + 401) * .48,
+          phase: seeded(index + 241) * Math.PI * 2,
+          brownianScale: .72 + seeded(index + 501) * .56
+        });
+      }
+    }
+
+    function gradientColor(position, now) {
+      const normalized = Math.max(0, Math.min(1, position));
+      const phase = (Math.sin(now * .00022) + 1) * .5;
+      const blend = phase < .5 ? phase * 2 : (1 - phase) * 2;
+      const themeIndex = phase < .5 ? 0 : 1;
+      const currentTheme = gradientThemes[themeIndex];
+      const nextTheme = gradientThemes[themeIndex === 0 ? 1 : 0];
+
+      for (let index = 1; index < currentTheme.length; index += 1) {
+        const previous = currentTheme[index - 1];
+        const next = currentTheme[index];
+        if (normalized > next.at) continue;
+        const amount = (normalized - previous.at) / (next.at - previous.at);
+        return previous.color.map((channel, channelIndex) => {
+          const current = channel + (next.color[channelIndex] - channel) * amount;
+          const targetPrevious = nextTheme[index - 1].color[channelIndex];
+          const targetNext = nextTheme[index].color[channelIndex];
+          const target = targetPrevious + (targetNext - targetPrevious) * amount;
+          return Math.round(current + (target - current) * blend);
+        });
+      }
+      const current = currentTheme[currentTheme.length - 1].color;
+      const target = nextTheme[nextTheme.length - 1].color;
+      return current.map((channel, channelIndex) => Math.round(channel + (target[channelIndex] - channel) * blend));
+    }
+
+    function resize() {
+      const bounds = field.getBoundingClientRect();
+      width = bounds.width;
+      height = bounds.height;
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(width * pixelRatio);
+      canvas.height = Math.floor(height * pixelRatio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      pointer.x = pointer.targetX = width * .5;
+      pointer.y = pointer.targetY = height * .44;
+      createParticles();
+    }
+
+    function updatePointer() {
+      const previousX = pointer.x;
+      const previousY = pointer.y;
+      pointer.x += (pointer.targetX - pointer.x) * .24;
+      pointer.y += (pointer.targetY - pointer.y) * .24;
+      pointer.vx = pointer.x - previousX;
+      pointer.vy = pointer.y - previousY;
+    }
+
+    function deformParticles() {
+      if (!pointer.active) return;
+
+      const radius = Math.min(width * .46, 180);
+      for (const particle of particles) {
+        const dx = particle.baseX - pointer.x;
+        const dy = particle.baseY - pointer.y;
+        const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const influence = Math.max(0, 1 - distance / radius);
+        if (influence <= 0) continue;
+
+        const strength = influence * influence;
+        const push = 30 * strength;
+        const targetOffsetX = (dx / distance) * push + pointer.vx * strength * 5;
+        const targetOffsetY = (dy / distance) * push + pointer.vy * strength * 5;
+
+        // 形变记忆：只在手指接触时更新，松手后保留当前偏移，不自动归零。
+        particle.offsetX += (targetOffsetX - particle.offsetX) * .22;
+        particle.offsetY += (targetOffsetY - particle.offsetY) * .22;
+      }
+    }
+
+    function drawAtmosphere() {
+      const centerX = width * .5;
+      const centerY = height * .44;
+      const glow = context.createRadialGradient(centerX, centerY, 8, centerX, centerY, Math.min(width, height) * .43);
+      glow.addColorStop(0, 'rgba(121, 143, 151, .075)');
+      glow.addColorStop(.55, 'rgba(178, 145, 102, .026)');
+      glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      context.fillStyle = glow;
+      context.fillRect(0, 0, width, height);
+    }
+
+    function simulateBrownianMotion() {
+      for (const particle of particles) {
+        const targetX = particle.baseX + particle.offsetX;
+        const targetY = particle.baseY + particle.offsetY;
+        const restoreX = targetX - particle.x;
+        const restoreY = targetY - particle.y;
+
+        // 布朗运动：随机微冲量 + 阻尼 + 软回弹，粒子会动但不会离开力场。
+        particle.vx += restoreX * .018 + (Math.random() - .5) * .16 * particle.brownianScale;
+        particle.vy += restoreY * .018 + (Math.random() - .5) * .16 * particle.brownianScale;
+        particle.vx *= .91;
+        particle.vy *= .91;
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+      }
+    }
+
+    function drawParticles(now) {
+      const ordered = particles.slice().sort((a, b) => a.size - b.size);
+      for (const particle of ordered) {
+        context.beginPath();
+        context.arc(particle.x, particle.y, particle.size, 0, TAU);
+        const normalizedY = (particle.baseY - height * .12) / (height * .64);
+        const color = gradientColor(normalizedY, now);
+        context.fillStyle = rgba(color, particle.alpha);
+        context.fill();
+      }
+    }
+
+    function render(now) {
+      context.clearRect(0, 0, width, height);
+      updatePointer();
+      deformParticles();
+      simulateBrownianMotion();
+      drawAtmosphere();
+      drawParticles(now);
+      requestAnimationFrame(render);
+    }
+
+    function releaseGesture(deltaY) {
+      pointer.active = false;
+      field.classList.remove('is-touching');
+      if (Math.abs(deltaY) < 36) return;
+
+      field.classList.add('has-used');
+      const direction = deltaY < 0 ? -1 : 1;
+      showStatus(`<strong>电脑 ${direction < 0 ? '向下滚动' : '向上滚动'}</strong>`);
+
+    }
+
+    field.addEventListener('pointerdown', (event) => {
+      if (activePointerId !== null) return;
+      activePointerId = event.pointerId;
+      startY = event.clientY;
+      lastY = event.clientY;
+      gestureDeltaY = 0;
+      scrollActivated = false;
+      gestureId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+      pointer.targetX = pointer.x = event.clientX;
+      pointer.targetY = pointer.y = event.clientY;
+      pointer.vx = pointer.vy = 0;
+      pointer.active = true;
+      field.classList.add('is-touching');
+      field.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    field.addEventListener('pointermove', (event) => {
+      if (event.pointerId !== activePointerId || startY === null) return;
+      const stepDeltaY = event.clientY - lastY;
+      lastY = event.clientY;
+      gestureDeltaY += stepDeltaY;
+      pointer.targetX = event.clientX;
+      pointer.targetY = event.clientY;
+      if (!scrollActivated && Math.abs(gestureDeltaY) >= 36) {
+        scrollActivated = true;
+        queueScrollDelta(gestureDeltaY);
+      } else if (scrollActivated) {
+        queueScrollDelta(stepDeltaY);
+      }
+      event.preventDefault();
+    });
+
+    field.addEventListener('pointerup', (event) => {
+      if (startY === null || event.pointerId !== activePointerId) return;
+      const deltaY = Math.round(event.clientY - startY);
+      if (scrollActivated) {
+        queueScrollDelta(deltaY - gestureDeltaY);
+      }
+      startY = null;
+      lastY = null;
+      activePointerId = null;
+      releaseGesture(deltaY);
+    });
+
+    field.addEventListener('pointercancel', () => {
+      startY = null;
+      lastY = null;
+      activePointerId = null;
+      gestureDeltaY = 0;
+      scrollActivated = false;
+      pointer.active = false;
+      field.classList.remove('is-touching');
+    });
+
+    composer.addEventListener('touchstart', (event) => event.stopPropagation(), { passive: true });
+
+    composer.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const text = message.value.trim();
+      if (!text) return;
+      const button = composer.querySelector('button');
+      button.disabled = true;
+      showStatus('正在发送');
+      try {
+        if (!demoOnly) {
+          const response = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          if (!response.ok) throw new Error('send_failed');
+        }
+        message.value = '';
+        showStatus('<strong>已发送给 Codex</strong>');
+      } catch (_) {
+        showStatus('发送失败');
+      } finally {
+        button.disabled = false;
+        message.focus();
+      }
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

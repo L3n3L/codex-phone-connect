@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,8 @@ public sealed class BridgeWebServer : IAsyncDisposable
     }
 
     public event EventHandler<SendJobReceivedEventArgs>? JobReceived;
+
+    public event EventHandler<ScrollCommandReceivedEventArgs>? ScrollCommandReceived;
 
     public string Address { get; private set; }
 
@@ -56,7 +59,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
             }
         });
 
-        application.MapGet("/", () => Results.Content(PhonePage, "text/html; charset=utf-8"));
+        application.MapGet("/", () => Results.Content(LoadPhonePage(), "text/html; charset=utf-8"));
         application.MapGet("/api/status", () => Results.Ok(new BridgeStatus("running", true, Address)));
         application.MapPost("/api/jobs", (SendJobRequest request) =>
         {
@@ -81,6 +84,35 @@ public sealed class BridgeWebServer : IAsyncDisposable
             return Results.Accepted($"/api/jobs/{jobId}", new SendJobAccepted(jobId, "queued"));
         });
 
+        application.MapPost("/api/control/scroll", (ScrollRequest request) =>
+        {
+            var deltaY = Math.Clamp(request.DeltaY, -120, 120);
+            if (deltaY == 0)
+            {
+                return Results.BadRequest(new { error = "delta_required" });
+            }
+
+            var commandId = Guid.NewGuid().ToString("N");
+            BridgeLog.Debug("Http", $"收到滚动命令，commandId={commandId}，deltaY={deltaY}，requestId={request.RequestId ?? "-"}");
+            try
+            {
+                ScrollCommandReceived?.Invoke(
+                    this,
+                    new ScrollCommandReceivedEventArgs(
+                        commandId,
+                        request with { DeltaY = deltaY }));
+            }
+            catch (Exception exception)
+            {
+                BridgeLog.Error("Http", $"滚动命令分发失败，commandId={commandId}", exception);
+                return Results.Problem("滚动命令分发失败");
+            }
+
+            return Results.Accepted(
+                $"/api/control/scroll/{commandId}",
+                new ScrollCommandAccepted(commandId, "queued"));
+        });
+
         await application.StartAsync(cancellationToken);
         _application = application;
         BridgeLog.Info("Http", $"HTTP 服务已启动：0.0.0.0:{_port}");
@@ -100,7 +132,21 @@ public sealed class BridgeWebServer : IAsyncDisposable
         BridgeLog.Info("Http", "HTTP 服务已停止");
     }
 
-    private const string PhonePage = """
+    private static string LoadPhonePage()
+    {
+        var pagePath = Path.Combine(AppContext.BaseDirectory, "prototype", "phone-scroll.html");
+        if (!File.Exists(pagePath))
+        {
+            BridgeLog.Error("Http", $"手机页面文件不存在：{pagePath}");
+            return "<!doctype html><meta charset=\"utf-8\"><p>手机页面文件缺失，请重新发布程序。</p>";
+        }
+
+        var page = File.ReadAllText(pagePath);
+        // 原型页保留 demoOnly=true 供 5175 静态预览；正式服务运行时切换为真实接口。
+        return page.Replace("const demoOnly = true;", "const demoOnly = false;", StringComparison.Ordinal);
+    }
+
+    private const string LegacyPhonePage = """
         <!doctype html>
         <html lang="zh-CN">
         <head>

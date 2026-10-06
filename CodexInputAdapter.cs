@@ -12,9 +12,23 @@ public sealed class CodexInputAdapter
     private const uint InputKeyboard = 1;
     private const uint MouseEventLeftDown = 0x0002;
     private const uint MouseEventLeftUp = 0x0004;
+    private const uint MouseEventWheel = 0x0800;
     private const uint KeyboardEventKeyUp = 0x0002;
     private const ushort VirtualKeyControl = 0x11;
     private const ushort VirtualKeyV = 0x56;
+    private nint _boundWindow;
+
+    public void BindWindow(nint window)
+    {
+        if (window == 0 || !IsCodexWindow(window))
+        {
+            BridgeLog.Warning("Input", "拒绝绑定非 Codex 窗口");
+            return;
+        }
+
+        _boundWindow = window;
+        BridgeLog.Info("Input", $"已绑定 Codex 窗口，window=0x{window.ToInt64():X}");
+    }
 
     public async Task SendAsync(string text, BridgeSettings settings, CancellationToken cancellationToken)
     {
@@ -58,30 +72,61 @@ public sealed class CodexInputAdapter
         }
     }
 
-    private static nint FindCodexWindow()
+    public void Scroll(int deltaY, BridgeSettings settings, CancellationToken cancellationToken)
     {
-        var foreground = GetForegroundWindow();
-        GetWindowThreadProcessId(foreground, out var foregroundProcessId);
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!settings.IsScrollCalibrated)
         {
-            using var foregroundProcess = Process.GetProcessById((int)foregroundProcessId);
-            if (string.Equals(foregroundProcess.ProcessName, CodexProcessName, StringComparison.OrdinalIgnoreCase)
-                && IsWindowVisible(foreground)
-                && foreground != 0)
-            {
-                return foreground;
-            }
+            throw new InvalidOperationException("尚未完成滚动区域校准");
         }
-        catch (ArgumentException)
+
+        var window = FindCodexWindow();
+        if (window == 0)
         {
-            // The foreground process can exit while it is being inspected.
+            throw new InvalidOperationException("未找到已绑定的 Codex 窗口");
+        }
+
+        var boundedDelta = Math.Clamp(deltaY, -120, 120);
+        if (boundedDelta == 0)
+        {
+            return;
+        }
+
+        if (GetForegroundWindow() != window)
+        {
+            ActivateWindow(window);
+        }
+        MoveClientPoint(window, settings.ScrollPoint!);
+
+        // 跟随手机直觉：手指上滑（deltaY<0）时，内容向下；手指下滑时，内容向上。
+        var wheelAmount = Math.Clamp(boundedDelta * 8, -960, 960);
+        var inputs = new[] { CreateMouseWheelInput(wheelAmount) };
+        if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
+        {
+            throw new InvalidOperationException("无法向 Codex 注入鼠标滚轮");
+        }
+
+        BridgeLog.Debug("Input", $"已注入 Codex 滚轮，deltaY={boundedDelta}，wheel={wheelAmount}，window=0x{window.ToInt64():X}");
+    }
+
+    private nint FindCodexWindow()
+    {
+        if (IsCodexWindow(_boundWindow))
+        {
+            return _boundWindow;
+        }
+
+        var foreground = GetForegroundWindow();
+        if (IsCodexWindow(foreground))
+        {
+            return foreground;
         }
 
         foreach (var process in Process.GetProcessesByName(CodexProcessName))
         {
             try
             {
-                if (process.MainWindowHandle != 0 && IsWindowVisible(process.MainWindowHandle))
+                if (IsCodexWindow(process.MainWindowHandle))
                 {
                     return process.MainWindowHandle;
                 }
@@ -93,6 +138,30 @@ public sealed class CodexInputAdapter
         }
 
         return 0;
+    }
+
+    private static bool IsCodexWindow(nint window)
+    {
+        if (window == 0 || !IsWindowVisible(window))
+        {
+            return false;
+        }
+
+        GetWindowThreadProcessId(window, out var processId);
+        if (processId == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            return string.Equals(process.ProcessName, CodexProcessName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static void ActivateWindow(nint window)
@@ -108,6 +177,23 @@ public sealed class CodexInputAdapter
     }
 
     private static void ClickClientPoint(nint window, CalibrationPoint point)
+    {
+        MoveClientPoint(window, point);
+
+        var inputs = new[]
+        {
+            CreateMouseInput(MouseEventLeftDown),
+            CreateMouseInput(MouseEventLeftUp),
+        };
+        if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
+        {
+            throw new InvalidOperationException("无法点击 Codex 目标位置");
+        }
+
+        BridgeLog.Debug("Input", $"已点击 Codex 客户区比例坐标 x={point.X:F4}，y={point.Y:F4}");
+    }
+
+    private static void MoveClientPoint(nint window, CalibrationPoint point)
     {
         if (!GetClientRect(window, out var clientRect))
         {
@@ -130,18 +216,22 @@ public sealed class CodexInputAdapter
         {
             throw new InvalidOperationException("无法移动鼠标到 Codex 目标位置");
         }
+    }
 
-        var inputs = new[]
+    private static Input CreateMouseWheelInput(int wheelAmount)
+    {
+        return new Input
         {
-            CreateMouseInput(MouseEventLeftDown),
-            CreateMouseInput(MouseEventLeftUp),
+            Type = InputMouse,
+            Data = new InputUnion
+            {
+                Mouse = new MouseInput
+                {
+                    MouseData = unchecked((uint)wheelAmount),
+                    Flags = MouseEventWheel,
+                },
+            },
         };
-        if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
-        {
-            throw new InvalidOperationException("无法点击 Codex 目标位置");
-        }
-
-        BridgeLog.Debug("Input", $"已点击 Codex 客户区比例坐标 x={point.X:F4}，y={point.Y:F4}");
     }
 
     private static void SendPasteShortcut()

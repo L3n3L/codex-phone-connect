@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _server.JobReceived += Server_JobReceived;
+        _server.ScrollCommandReceived += Server_ScrollCommandReceived;
         BridgeLog.Info("UI", "主窗口已加载，开始启动桥接服务");
         try
         {
@@ -50,7 +51,7 @@ public partial class MainWindow : Window
             AddressText.Text = address;
             UpdateConnectionQr(address, lanAddress is not null);
             ServerStateText.Text = "服务运行中";
-            _jobQueue.Start(ProcessJobAsync);
+            _jobQueue.Start(ProcessCommandAsync);
             BridgeLog.Info("UI", $"桥接服务已就绪，局域网地址：{address}");
         }
         catch (Exception exception)
@@ -85,6 +86,12 @@ public partial class MainWindow : Window
     {
         BridgeLog.Info("Calibration", "开始设置发送按钮位置");
         BeginCalibration(CalibrationTarget.Send);
+    }
+
+    private void ScrollPointButton_Click(object sender, RoutedEventArgs e)
+    {
+        BridgeLog.Info("Calibration", "开始设置滚动区域位置");
+        BeginCalibration(CalibrationTarget.Scroll);
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -138,7 +145,28 @@ public partial class MainWindow : Window
             : "发送队列不可用");
     }
 
-    private async Task ProcessJobAsync(BridgeJob job, CancellationToken cancellationToken)
+    private void Server_ScrollCommandReceived(object? sender, ScrollCommandReceivedEventArgs e)
+    {
+        var deltaY = Math.Clamp(e.Request.DeltaY, -120, 120);
+        var accepted = _jobQueue.Enqueue(new BridgeScrollCommand(e.CommandId, deltaY));
+        BridgeLog.Debug("Queue", $"滚动命令已入队，commandId={e.CommandId}，deltaY={deltaY}");
+        Dispatcher.BeginInvoke(() => HintText.Text = accepted ? "正在控制 Codex 滚动" : "滚动队列不可用");
+    }
+
+    private async Task ProcessCommandAsync(BridgeInputCommand command, CancellationToken cancellationToken)
+    {
+        switch (command)
+        {
+            case BridgeJob job:
+                await ProcessTextJobAsync(job, cancellationToken);
+                break;
+            case BridgeScrollCommand scroll:
+                await ProcessScrollCommandAsync(scroll, cancellationToken);
+                break;
+        }
+    }
+
+    private async Task ProcessTextJobAsync(BridgeJob job, CancellationToken cancellationToken)
     {
         if (!_settings.IsCalibrated)
         {
@@ -164,6 +192,31 @@ public partial class MainWindow : Window
         {
             await Dispatcher.BeginInvoke(() => HintText.Text = $"发送失败 {job.JobId[..8]}");
             BridgeLog.Error("Queue", $"任务发送失败，jobId={job.JobId}", exception);
+        }
+    }
+
+    private async Task ProcessScrollCommandAsync(BridgeScrollCommand command, CancellationToken cancellationToken)
+    {
+        if (!_settings.IsScrollCalibrated)
+        {
+            BridgeLog.Warning("Input", $"滚动命令因未完成校准而跳过，commandId={command.CommandId}");
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.InvokeAsync(
+                    () => _inputAdapter.Scroll(command.DeltaY, _settings, cancellationToken))
+                .Task;
+            BridgeLog.Debug("Queue", $"滚动命令执行完成，commandId={command.CommandId}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            BridgeLog.Warning("Queue", $"滚动命令因程序关闭而取消，commandId={command.CommandId}");
+        }
+        catch (Exception exception)
+        {
+            BridgeLog.Error("Queue", $"滚动命令执行失败，commandId={command.CommandId}", exception);
         }
     }
 
@@ -199,7 +252,9 @@ public partial class MainWindow : Window
         _pendingTarget = target;
         HintText.Text = target == CalibrationTarget.Input
             ? "请点击 Codex 输入框"
-            : "请点击 Codex 发送按钮";
+            : target == CalibrationTarget.Send
+                ? "请点击 Codex 发送按钮"
+                : "请点击 Codex 主聊天内容区域";
 
         _mouseProc = MouseHookCallback;
         _mouseHook = SetWindowsHookEx(WhMouseLl, _mouseProc, GetModuleHandle(null), 0);
@@ -244,7 +299,7 @@ public partial class MainWindow : Window
                         (double)clientPoint.Y / height);
                     var target = _pendingTarget.Value;
                     BridgeLog.Info("Calibration", $"捕获 Codex 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
-                    Dispatcher.BeginInvoke(() => CompleteCalibration(target, point));
+                    Dispatcher.BeginInvoke(() => CompleteCalibration(target, point, targetWindow));
                     return 1;
                 }
                 else
@@ -262,20 +317,25 @@ public partial class MainWindow : Window
         return CallNextHookEx(_mouseHook, code, wParam, lParam);
     }
 
-    private void CompleteCalibration(CalibrationTarget target, CalibrationPoint point)
+    private void CompleteCalibration(CalibrationTarget target, CalibrationPoint point, nint targetWindow)
     {
         RemoveMouseHook();
         _pendingTarget = null;
         Show();
         Activate();
+        _inputAdapter.BindWindow(targetWindow);
 
         if (target == CalibrationTarget.Input)
         {
             _settings.InputPoint = point;
         }
-        else
+        else if (target == CalibrationTarget.Send)
         {
             _settings.SendPoint = point;
+        }
+        else
+        {
+            _settings.ScrollPoint = point;
         }
 
         UpdateCalibrationUi();
@@ -287,7 +347,10 @@ public partial class MainWindow : Window
     {
         InputPointText.Text = _settings.InputPoint is null ? "未设置" : "已设置";
         SendPointText.Text = _settings.SendPoint is null ? "未设置" : "已设置";
-        SaveButton.IsEnabled = _settings.InputPoint is not null || _settings.SendPoint is not null;
+        ScrollPointText.Text = _settings.ScrollPoint is null ? "未设置" : "已设置";
+        SaveButton.IsEnabled = _settings.InputPoint is not null
+                               || _settings.SendPoint is not null
+                               || _settings.ScrollPoint is not null;
     }
 
     private void RemoveMouseHook()
@@ -338,6 +401,7 @@ public partial class MainWindow : Window
     {
         Input,
         Send,
+        Scroll,
     }
 
     [StructLayout(LayoutKind.Sequential)]

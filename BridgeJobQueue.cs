@@ -2,11 +2,9 @@ using System.Threading.Channels;
 
 namespace CodexPhoneConnect;
 
-public sealed record BridgeJob(string JobId, string Text);
-
 public sealed class BridgeJobQueue : IAsyncDisposable
 {
-    private readonly Channel<BridgeJob> _jobs = Channel.CreateUnbounded<BridgeJob>(new UnboundedChannelOptions
+    private readonly Channel<BridgeInputCommand> _jobs = Channel.CreateUnbounded<BridgeInputCommand>(new UnboundedChannelOptions
     {
         SingleReader = true,
         SingleWriter = false,
@@ -14,7 +12,7 @@ public sealed class BridgeJobQueue : IAsyncDisposable
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _worker;
 
-    public void Start(Func<BridgeJob, CancellationToken, Task> handler)
+    public void Start(Func<BridgeInputCommand, CancellationToken, Task> handler)
     {
         if (_worker is not null)
         {
@@ -25,16 +23,16 @@ public sealed class BridgeJobQueue : IAsyncDisposable
         BridgeLog.Info("Queue", "单线程发送队列已启动");
     }
 
-    public bool Enqueue(BridgeJob job)
+    public bool Enqueue(BridgeInputCommand command)
     {
-        var accepted = _jobs.Writer.TryWrite(job);
+        var accepted = _jobs.Writer.TryWrite(command);
         if (accepted)
         {
-            BridgeLog.Info("Queue", $"任务进入发送队列，jobId={job.JobId}");
+            BridgeLog.Info("Queue", $"输入命令进入串行队列，commandId={command.CommandId}，type={command.GetType().Name}");
         }
         else
         {
-            BridgeLog.Warning("Queue", $"任务进入发送队列失败，jobId={job.JobId}");
+            BridgeLog.Warning("Queue", $"输入命令进入串行队列失败，commandId={command.CommandId}");
         }
 
         return accepted;
@@ -61,15 +59,15 @@ public sealed class BridgeJobQueue : IAsyncDisposable
         BridgeLog.Info("Queue", "发送队列已停止");
     }
 
-    private async Task RunAsync(Func<BridgeJob, CancellationToken, Task> handler)
+    private async Task RunAsync(Func<BridgeInputCommand, CancellationToken, Task> handler)
     {
         try
         {
-            await foreach (var job in _jobs.Reader.ReadAllAsync(_cancellation.Token))
+            await foreach (var command in _jobs.Reader.ReadAllAsync(_cancellation.Token))
             {
                 try
                 {
-                    await handler(job, _cancellation.Token);
+                    await handler(command, _cancellation.Token);
                 }
                 catch (OperationCanceledException) when (_cancellation.IsCancellationRequested)
                 {
@@ -77,7 +75,7 @@ public sealed class BridgeJobQueue : IAsyncDisposable
                 }
                 catch (Exception exception)
                 {
-                    BridgeLog.Error("Queue", $"任务处理失败，jobId={job.JobId}", exception);
+                    BridgeLog.Error("Queue", $"输入命令处理失败，commandId={command.CommandId}", exception);
                 }
             }
         }

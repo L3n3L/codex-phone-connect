@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Codex Phone Connect"
         Width="640"
-        Height="510"
+        Height="590"
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
@@ -83,7 +83,7 @@
                         CornerRadius="11"
                         Padding="16"
                         Height="72"
-                        Margin="0,0,0,20">
+                        Margin="0,0,0,10">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -101,6 +101,33 @@
                                 Width="68"
                                 Height="34"
                                 Click="SendPointButton_Click" />
+                    </Grid>
+                </Border>
+
+                <Border Background="{StaticResource PanelBackgroundBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="11"
+                        Padding="16"
+                        Height="72"
+                        Margin="0,0,0,20">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="滚动区域" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ScrollPointText"
+                                       Text="未设置"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="设置"
+                                Width="68"
+                                Height="34"
+                                Click="ScrollPointButton_Click" />
                     </Grid>
                 </Border>
 
