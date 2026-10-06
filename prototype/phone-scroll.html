@@ -303,11 +303,10 @@
 
     function gradientColor(position, now) {
       const normalized = Math.max(0, Math.min(1, position));
-      const phase = (Math.sin(now * .00022) + 1) * .5;
-      const blend = phase < .5 ? phase * 2 : (1 - phase) * 2;
-      const themeIndex = phase < .5 ? 0 : 1;
-      const currentTheme = gradientThemes[themeIndex];
-      const nextTheme = gradientThemes[themeIndex === 0 ? 1 : 0];
+      const mix = (Math.sin(now * .00022) + 1) * .5;
+      const blend = mix * mix * (3 - 2 * mix);
+      const currentTheme = gradientThemes[0];
+      const nextTheme = gradientThemes[1];
 
       for (let index = 1; index < currentTheme.length; index += 1) {
         const previous = currentTheme[index - 1];
@@ -319,12 +318,12 @@
           const targetPrevious = nextTheme[index - 1].color[channelIndex];
           const targetNext = nextTheme[index].color[channelIndex];
           const target = targetPrevious + (targetNext - targetPrevious) * amount;
-          return Math.round(current + (target - current) * blend);
+          return current + (target - current) * blend;
         });
       }
       const current = currentTheme[currentTheme.length - 1].color;
       const target = nextTheme[nextTheme.length - 1].color;
-      return current.map((channel, channelIndex) => Math.round(channel + (target[channelIndex] - channel) * blend));
+      return current.map((channel, channelIndex) => channel + (target[channelIndex] - channel) * blend);
     }
 
     function resize() {
