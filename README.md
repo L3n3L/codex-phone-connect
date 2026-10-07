@@ -22,6 +22,8 @@ Codex Phone Connect 是一个 Windows 桌面桥接程序，让手机浏览器通
 - 桌面端显示局域网地址和二维码；
 - 手机页面只有输入框和发送按钮；
 - 输入框、发送按钮两点校准；
+- 手机力场粒子交互，实时遥控 Codex 聊天区域滚动；
+- 输入框、发送按钮、滚动区域三点校准；
 - 单线程发送队列，避免多条消息同时点击；
 - 保存剪贴板 → 粘贴 → 点击发送 → 恢复原剪贴板；
 - 适配 Windows DPI 缩放；
@@ -49,8 +51,9 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 1. 用手机扫描桌面窗口中的二维码，或手动打开显示的 `http://电脑IP:8787`；
 2. 点击“输入框”右侧的“设置”，再点击 Codex 输入框中心；
 3. 点击“发送按钮”右侧的“设置”，再点击 Codex 发送按钮中心；
-4. 点击“保存”；
-5. 在手机页面输入消息并点击“发送”。
+4. 点击“滚动区域”右侧的“设置”，再点击 Codex 聊天内容区域；
+5. 点击“保存”；
+6. 在手机页面输入消息并点击“发送”，或在粒子区域上下滑动控制 Codex 滚动。
 
 校准时的点击会被拦截，不会因为选择发送按钮而误发送 Codex 原有内容。
 
@@ -58,13 +61,15 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 
 ```text
 手机浏览器
-    │ POST /api/jobs
-    ▼
+    ├─ POST /api/jobs ───────────────┐
+    └─ POST /api/control/scroll ────┤
+                                    ▼
 Codex Phone Connect
-    │ 单线程发送队列
+    │ 单线程输入队列
     ▼
 Codex Desktop 窗口
-    │ 激活 → 点击输入框 → 粘贴 → 点击发送
+    ├─ 激活 → 点击输入框 → 粘贴 → 点击发送
+    └─ 激活 → 定位滚动区域 → 注入滚轮事件
     ▼
 当前 Codex 会话
 ```
@@ -126,7 +131,7 @@ docs/                             对接复盘和设计文档
 
 ### 项目状态
 
-手机 → Bridge → Codex 的实际发送链路已经验证成功。后续可继续完善安装包、连接诊断和更安全的本地授权。
+手机 → Bridge → Codex 的发送和滚动链路已经验证成功。后续可继续完善安装包、连接诊断和更安全的本地授权。
 
 ### 免责声明
 
@@ -148,8 +153,9 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 1. Scan the QR code shown by the desktop app.
 2. Calibrate the Codex input box.
 3. Calibrate the Codex Send button.
-4. Save the calibration.
-5. Send a message from the phone.
+4. Calibrate the Codex scroll area.
+5. Save the calibration.
+6. Send a message or swipe the particle area to control scrolling.
 
 ### Security and limitations
 
