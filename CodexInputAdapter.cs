@@ -7,7 +7,7 @@ namespace CodexPhoneConnect;
 public sealed class CodexInputAdapter
 {
     private const string CodexProcessName = "ChatGPT";
-    private const int ShowNormal = 9;
+    private const int ShowRestore = 9;
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
     private const uint MouseEventLeftDown = 0x0002;
@@ -166,14 +166,24 @@ public sealed class CodexInputAdapter
 
     private static void ActivateWindow(nint window)
     {
-        ShowWindow(window, ShowNormal);
+        var wasMinimized = IsIconic(window);
+        var wasMaximized = IsZoomed(window);
+        if (wasMinimized)
+        {
+            // 只恢复最小化窗口。最大化窗口不能调用 SW_RESTORE，
+            // 否则 Windows 会把它恢复成之前的普通窗口尺寸。
+            ShowWindow(window, ShowRestore);
+        }
+
         BringWindowToTop(window);
         if (!SetForegroundWindow(window))
         {
             throw new InvalidOperationException("无法激活 Codex 窗口");
         }
 
-        BridgeLog.Debug("Input", $"已激活 Codex 窗口，window=0x{window.ToInt64():X}");
+        BridgeLog.Debug(
+            "Input",
+            $"已激活 Codex 窗口，window=0x{window.ToInt64():X}，最小化前={wasMinimized}，最大化前={wasMaximized}，最大化后={IsZoomed(window)}");
     }
 
     private static void ClickClientPoint(nint window, CalibrationPoint point)
@@ -360,6 +370,14 @@ public sealed class CodexInputAdapter
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool IsWindowVisible(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsZoomed(nint window);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
