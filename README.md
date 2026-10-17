@@ -21,6 +21,21 @@
 
 > 不读取聊天历史，不创建或切换会话，不经过云端中继。消息只用于局域网内的桌面输入。
 
+## 实机界面
+
+电脑端分别校准目标应用的输入框、发送按钮和滚动区域；手机端可切换控制 GPT 或 Claude，并通过粒子区域遥控桌面滚动。
+
+<p align="center">
+  <img src="assets/screenshots/desktop-calibration.png" width="820" alt="Windows 桌面端校准窗口，展示 GPT 与 Claude 的独立校准设置">
+</p>
+
+<table>
+  <tr>
+    <td align="center"><strong>GPT · 浅色模式</strong><br><img src="assets/screenshots/mobile-gpt.jpg" width="340" alt="手机端 GPT 遥控页面，浅色粒子交互效果"></td>
+    <td align="center"><strong>Claude · 深色模式</strong><br><img src="assets/screenshots/mobile-claude.jpg" width="340" alt="手机端 Claude 遥控页面，深色粒子交互效果"></td>
+  </tr>
+</table>
+
 ## 它能做什么
 
 - **手机发消息**：在手机输入文字，发送到当前选中的桌面智能体。

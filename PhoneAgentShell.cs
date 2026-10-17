@@ -169,6 +169,9 @@ public static class PhoneAgentShell
           if (!root) return;
           const buttons = [...root.querySelectorAll('[data-agent]')];
           const connection = document.querySelector('.connection');
+          const composerInput = document.querySelector('.composer textarea');
+          const remoteField = document.getElementById('remote-field');
+          const fieldHint = document.querySelector('.field-hint');
           const state = { selectedAgent: 'gpt', statusKnown: false, userSelected: false };
 
           // The frozen page still calls /api/jobs and /api/control/scroll without
@@ -208,7 +211,11 @@ public static class PhoneAgentShell
             root.dataset.agent = selected;
             document.documentElement.dataset.agentTheme = selected;
             document.body.dataset.agentTheme = selected;
+            const targetName = selected === 'claude' ? 'Claude' : 'Codex';
             if (connection) connection.textContent = selected === 'claude' ? 'Claude · 已连接' : 'GPT · 已连接';
+            if (composerInput) composerInput.placeholder = `输入要发送给 ${targetName} 的内容`;
+            if (remoteField) remoteField.setAttribute('aria-label', `${targetName} 滑动遥控区`);
+            if (fieldHint) fieldHint.textContent = `上下滑动控制 ${targetName}`;
             buttons.forEach((button) => {
               button.classList.toggle('is-active', button.dataset.agent === selected);
               button.setAttribute('aria-selected', button.dataset.agent === selected ? 'true' : 'false');
