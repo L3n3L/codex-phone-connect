@@ -5,7 +5,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using QRCoder;
 
@@ -20,27 +20,34 @@ public partial class MainWindow : Window
 
     private readonly BridgeWebServer _server = new(Port);
     private readonly BridgeSettingsStore _settingsStore = new();
-    private readonly CodexInputAdapter _inputAdapter = new();
+    private readonly AgentInputAdapter _inputAdapter = new();
     private readonly BridgeJobQueue _jobQueue = new();
     private BridgeSettings _settings = new();
+    private AgentId _selectedAgent;
     private LowLevelMouseProc? _mouseProc;
     private nint _mouseHook;
     private CalibrationTarget? _pendingTarget;
+    private AgentId _pendingAgent;
+    private bool _settingsDirty;
 
     public MainWindow()
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
-        UpdateCalibrationUi();
+        _selectedAgent = _settings.ActiveAgent;
+        LoadBrandIcons();
+        _server.SetActiveAgent(_selectedAgent);
+        SelectAgent(_selectedAgent, markDirty: false);
         Loaded += MainWindow_Loaded;
         Closing += MainWindow_Closing;
-        BridgeLog.Info("UI", "主窗口已创建");
+        BridgeLog.Info("UI", $"主窗口已创建，active={AgentCatalog.ToWireValue(_selectedAgent)}");
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         _server.JobReceived += Server_JobReceived;
         _server.ScrollCommandReceived += Server_ScrollCommandReceived;
+        _server.ActiveAgentChanged += Server_ActiveAgentChanged;
         BridgeLog.Info("UI", "主窗口已加载，开始启动桥接服务");
         try
         {
@@ -76,21 +83,31 @@ public partial class MainWindow : Window
         }
     }
 
+    private void GptAgentButton_Click(object sender, RoutedEventArgs e)
+    {
+        SelectAgent(AgentId.Gpt, markDirty: true);
+    }
+
+    private void ClaudeAgentButton_Click(object sender, RoutedEventArgs e)
+    {
+        SelectAgent(AgentId.Claude, markDirty: true);
+    }
+
     private void InputPointButton_Click(object sender, RoutedEventArgs e)
     {
-        BridgeLog.Info("Calibration", "开始设置输入框位置");
+        BridgeLog.Info("Calibration", $"开始设置输入框位置，agent={AgentCatalog.ToWireValue(_selectedAgent)}");
         BeginCalibration(CalibrationTarget.Input);
     }
 
     private void SendPointButton_Click(object sender, RoutedEventArgs e)
     {
-        BridgeLog.Info("Calibration", "开始设置发送按钮位置");
+        BridgeLog.Info("Calibration", $"开始设置发送按钮位置，agent={AgentCatalog.ToWireValue(_selectedAgent)}");
         BeginCalibration(CalibrationTarget.Send);
     }
 
     private void ScrollPointButton_Click(object sender, RoutedEventArgs e)
     {
-        BridgeLog.Info("Calibration", "开始设置滚动区域位置");
+        BridgeLog.Info("Calibration", $"开始设置滚动区域位置，agent={AgentCatalog.ToWireValue(_selectedAgent)}");
         BeginCalibration(CalibrationTarget.Scroll);
     }
 
@@ -98,9 +115,11 @@ public partial class MainWindow : Window
     {
         try
         {
+            _settings.ActiveAgent = _selectedAgent;
             _settingsStore.Save(_settings);
+            _settingsDirty = false;
             HintText.Text = "设置已保存";
-            SaveButton.IsEnabled = false;
+            UpdateCalibrationUi();
             BridgeLog.Info("UI", "点击保存按钮");
         }
         catch (Exception exception)
@@ -138,19 +157,30 @@ public partial class MainWindow : Window
 
     private void Server_JobReceived(object? sender, SendJobReceivedEventArgs e)
     {
-        BridgeLog.Info("Queue", $"任务已交给 UI 层，jobId={e.JobId}，字符数={e.Request.Text.Length}");
-        var accepted = _jobQueue.Enqueue(new BridgeJob(e.JobId, e.Request.Text));
+        BridgeLog.Info(
+            "Queue",
+            $"任务已交给 UI 层，jobId={e.JobId}，agent={AgentCatalog.ToWireValue(e.Agent)}，字符数={e.Request.Text.Length}");
+        var accepted = _jobQueue.Enqueue(new BridgeJob(e.JobId, e.Request.Text, e.Agent));
         Dispatcher.BeginInvoke(() => HintText.Text = accepted
-            ? $"已收到请求 {e.JobId[..8]}"
+            ? $"已收到 {AgentCatalog.Get(e.Agent).DisplayName} 请求 {e.JobId[..8]}"
             : "发送队列不可用");
     }
 
     private void Server_ScrollCommandReceived(object? sender, ScrollCommandReceivedEventArgs e)
     {
         var deltaY = Math.Clamp(e.Request.DeltaY, -120, 120);
-        var accepted = _jobQueue.Enqueue(new BridgeScrollCommand(e.CommandId, deltaY));
-        BridgeLog.Debug("Queue", $"滚动命令已入队，commandId={e.CommandId}，deltaY={deltaY}");
-        Dispatcher.BeginInvoke(() => HintText.Text = accepted ? "正在控制 Codex 滚动" : "滚动队列不可用");
+        var accepted = _jobQueue.Enqueue(new BridgeScrollCommand(e.CommandId, deltaY, e.Agent));
+        BridgeLog.Debug(
+            "Queue",
+            $"滚动命令已入队，commandId={e.CommandId}，agent={AgentCatalog.ToWireValue(e.Agent)}，deltaY={deltaY}");
+        Dispatcher.BeginInvoke(() => HintText.Text = accepted
+            ? $"正在控制 {AgentCatalog.Get(e.Agent).DisplayName} 滚动"
+            : "滚动队列不可用");
+    }
+
+    private void Server_ActiveAgentChanged(object? sender, ActiveAgentChangedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => SelectAgent(e.Agent, markDirty: true));
     }
 
     private async Task ProcessCommandAsync(BridgeInputCommand command, CancellationToken cancellationToken)
@@ -168,56 +198,120 @@ public partial class MainWindow : Window
 
     private async Task ProcessTextJobAsync(BridgeJob job, CancellationToken cancellationToken)
     {
-        if (!_settings.IsCalibrated)
+        var definition = AgentCatalog.Get(job.Agent);
+        if (!_settings.GetProfile(job.Agent).IsCalibrated)
         {
-            BridgeLog.Warning("Input", $"任务因未完成校准而跳过，jobId={job.JobId}");
-            await Dispatcher.BeginInvoke(() => HintText.Text = "请先设置输入框和发送按钮");
+            BridgeLog.Warning("Input", $"任务因未完成校准而跳过，agent={definition.WireId}，jobId={job.JobId}");
+            await Dispatcher.BeginInvoke(() => HintText.Text = $"请先设置 {definition.DisplayName} 的输入框和发送按钮");
             return;
         }
 
         try
         {
             await Dispatcher.InvokeAsync(
-                    () => _inputAdapter.SendAsync(job.Text, _settings, cancellationToken))
+                    () => _inputAdapter.SendAsync(
+                        job.Agent,
+                        job.Text,
+                        _settings.GetProfile(job.Agent),
+                        cancellationToken))
                 .Task
                 .Unwrap();
             await Dispatcher.BeginInvoke(() => HintText.Text = $"已发送 {job.JobId[..8]}");
-            BridgeLog.Info("Queue", $"任务发送完成，jobId={job.JobId}");
+            BridgeLog.Info("Queue", $"任务发送完成，agent={definition.WireId}，jobId={job.JobId}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            BridgeLog.Warning("Queue", $"任务因程序关闭而取消，jobId={job.JobId}");
+            BridgeLog.Warning("Queue", $"任务因程序关闭而取消，agent={definition.WireId}，jobId={job.JobId}");
         }
         catch (Exception exception)
         {
             await Dispatcher.BeginInvoke(() => HintText.Text = $"发送失败 {job.JobId[..8]}");
-            BridgeLog.Error("Queue", $"任务发送失败，jobId={job.JobId}", exception);
+            BridgeLog.Error("Queue", $"任务发送失败，agent={definition.WireId}，jobId={job.JobId}", exception);
         }
     }
 
     private async Task ProcessScrollCommandAsync(BridgeScrollCommand command, CancellationToken cancellationToken)
     {
-        if (!_settings.IsScrollCalibrated)
+        var definition = AgentCatalog.Get(command.Agent);
+        if (!_settings.GetProfile(command.Agent).IsScrollCalibrated)
         {
-            BridgeLog.Warning("Input", $"滚动命令因未完成校准而跳过，commandId={command.CommandId}");
+            BridgeLog.Warning("Input", $"滚动命令因未完成校准而跳过，agent={definition.WireId}，commandId={command.CommandId}");
             return;
         }
 
         try
         {
             await Dispatcher.InvokeAsync(
-                    () => _inputAdapter.Scroll(command.DeltaY, _settings, cancellationToken))
+                    () => _inputAdapter.Scroll(
+                        command.Agent,
+                        command.DeltaY,
+                        _settings.GetProfile(command.Agent),
+                        cancellationToken))
                 .Task;
-            BridgeLog.Debug("Queue", $"滚动命令执行完成，commandId={command.CommandId}");
+            BridgeLog.Debug("Queue", $"滚动命令执行完成，agent={definition.WireId}，commandId={command.CommandId}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            BridgeLog.Warning("Queue", $"滚动命令因程序关闭而取消，commandId={command.CommandId}");
+            BridgeLog.Warning("Queue", $"滚动命令因程序关闭而取消，agent={definition.WireId}，commandId={command.CommandId}");
         }
         catch (Exception exception)
         {
-            BridgeLog.Error("Queue", $"滚动命令执行失败，commandId={command.CommandId}", exception);
+            BridgeLog.Error("Queue", $"滚动命令执行失败，agent={definition.WireId}，commandId={command.CommandId}", exception);
         }
+    }
+
+    private void SelectAgent(AgentId agent, bool markDirty)
+    {
+        _selectedAgent = agent;
+        _settings.ActiveAgent = agent;
+        _server.SetActiveAgent(agent);
+        ApplyAgentButtonState(GptAgentButton, AgentId.Gpt, agent == AgentId.Gpt);
+        ApplyAgentButtonState(ClaudeAgentButton, AgentId.Claude, agent == AgentId.Claude);
+        ActiveAgentText.Text = AgentCatalog.Get(agent).ProductName;
+        if (markDirty)
+        {
+            _settingsDirty = true;
+        }
+
+        UpdateCalibrationUi();
+        BridgeLog.Info("UI", $"界面选择智能体：{AgentCatalog.ToWireValue(agent)}，dirty={_settingsDirty}");
+    }
+
+    private void ApplyAgentButtonState(System.Windows.Controls.Button button, AgentId agent, bool selected)
+    {
+        button.Background = selected
+            ? agent == AgentId.Gpt
+                ? new SolidColorBrush(Color.FromRgb(232, 242, 241))
+                : new SolidColorBrush(Color.FromRgb(251, 238, 225))
+            : Brushes.White;
+        button.BorderBrush = selected
+            ? agent == AgentId.Gpt
+                ? new SolidColorBrush(Color.FromRgb(172, 207, 207))
+                : new SolidColorBrush(Color.FromRgb(231, 203, 175))
+            : (SolidColorBrush)FindResource("BorderBrush");
+        button.Foreground = selected
+            ? agent == AgentId.Gpt
+                ? new SolidColorBrush(Color.FromRgb(64, 105, 110))
+                : new SolidColorBrush(Color.FromRgb(155, 104, 64))
+            : (SolidColorBrush)FindResource("PrimaryTextBrush");
+    }
+
+    private void LoadBrandIcons()
+    {
+        GptAgentIcon.Source = LoadBrandIcon(AgentCatalog.Get(AgentId.Gpt).IconPngAsset);
+        ClaudeAgentIcon.Source = LoadBrandIcon(AgentCatalog.Get(AgentId.Claude).IconPngAsset);
+    }
+
+    private static BitmapImage LoadBrandIcon(string assetName)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "assets", "brand", assetName);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.UriSource = new Uri(path, UriKind.Absolute);
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     private void UpdateConnectionQr(string address, bool isReachableAddress)
@@ -250,11 +344,14 @@ public partial class MainWindow : Window
     {
         RemoveMouseHook();
         _pendingTarget = target;
-        HintText.Text = target == CalibrationTarget.Input
-            ? "请点击 Codex 输入框"
-            : target == CalibrationTarget.Send
-                ? "请点击 Codex 发送按钮"
-                : "请点击 Codex 主聊天内容区域";
+        _pendingAgent = _selectedAgent;
+        var definition = AgentCatalog.Get(_pendingAgent);
+        HintText.Text = target switch
+        {
+            CalibrationTarget.Input => $"请点击 {definition.ProductName} 输入框",
+            CalibrationTarget.Send => $"请点击 {definition.ProductName} 发送按钮",
+            _ => $"请点击 {definition.ProductName} 主聊天内容区域",
+        };
 
         _mouseProc = MouseHookCallback;
         _mouseHook = SetWindowsHookEx(WhMouseLl, _mouseProc, GetModuleHandle(null), 0);
@@ -266,7 +363,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        BridgeLog.Info("Calibration", $"已安装全局鼠标钩子，等待点击，target={target}");
+        BridgeLog.Info("Calibration", $"已安装全局鼠标钩子，agent={definition.WireId}，target={target}");
         Hide();
     }
 
@@ -278,17 +375,18 @@ public partial class MainWindow : Window
             var childWindow = WindowFromPoint(mouseData.Point);
             var targetWindow = GetAncestor(childWindow, GaRoot);
             GetWindowThreadProcessId(targetWindow, out var processId);
+            var definition = AgentCatalog.Get(_pendingAgent);
 
             try
             {
                 using var process = Process.GetProcessById((int)processId);
-                if (string.Equals(process.ProcessName, "ChatGPT", StringComparison.OrdinalIgnoreCase))
+                if (definition.MatchesProcess(process.ProcessName))
                 {
                     var clientPoint = mouseData.Point;
                     if (!ScreenToClient(targetWindow, ref clientPoint)
                         || !GetClientRect(targetWindow, out var clientRect))
                     {
-                        BridgeLog.Warning("Calibration", "无法将屏幕坐标转换为 Codex 客户区坐标");
+                        BridgeLog.Warning("Calibration", $"无法将屏幕坐标转换为 {definition.DisplayName} 客户区坐标");
                         return CallNextHookEx(_mouseHook, code, wParam, lParam);
                     }
 
@@ -298,18 +396,20 @@ public partial class MainWindow : Window
                         (double)clientPoint.X / width,
                         (double)clientPoint.Y / height);
                     var target = _pendingTarget.Value;
-                    BridgeLog.Info("Calibration", $"捕获 Codex 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
-                    Dispatcher.BeginInvoke(() => CompleteCalibration(target, point, targetWindow));
+                    var agent = _pendingAgent;
+                    BridgeLog.Info(
+                        "Calibration",
+                        $"捕获 {definition.DisplayName} 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
+                    Dispatcher.BeginInvoke(() => CompleteCalibration(agent, target, point, targetWindow));
                     return 1;
                 }
-                else
-                {
-                    BridgeLog.Debug("Calibration", $"忽略非 Codex 窗口点击，process={process.ProcessName}");
-                }
+
+                BridgeLog.Debug(
+                    "Calibration",
+                    $"忽略非目标窗口点击，expected={definition.WireId}，process={process.ProcessName}");
             }
             catch (ArgumentException)
             {
-                // The clicked process can exit while the hook is processing the click.
                 BridgeLog.Warning("Calibration", "获取点击窗口进程失败，窗口可能已退出");
             }
         }
@@ -317,40 +417,42 @@ public partial class MainWindow : Window
         return CallNextHookEx(_mouseHook, code, wParam, lParam);
     }
 
-    private void CompleteCalibration(CalibrationTarget target, CalibrationPoint point, nint targetWindow)
+    private void CompleteCalibration(AgentId agent, CalibrationTarget target, CalibrationPoint point, nint targetWindow)
     {
         RemoveMouseHook();
         _pendingTarget = null;
         Show();
         Activate();
-        _inputAdapter.BindWindow(targetWindow);
+        _inputAdapter.BindWindow(agent, targetWindow);
 
+        var profile = _settings.GetProfile(agent);
         if (target == CalibrationTarget.Input)
         {
-            _settings.InputPoint = point;
+            profile.InputPoint = point;
         }
         else if (target == CalibrationTarget.Send)
         {
-            _settings.SendPoint = point;
+            profile.SendPoint = point;
         }
         else
         {
-            _settings.ScrollPoint = point;
+            profile.ScrollPoint = point;
         }
 
-        UpdateCalibrationUi();
-        HintText.Text = "";
-        BridgeLog.Info("Calibration", $"校准完成，target={target}，x={point.X:F4}，y={point.Y:F4}");
+        SelectAgent(agent, markDirty: true);
+        HintText.Text = $"{AgentCatalog.Get(agent).DisplayName} 已设置";
+        BridgeLog.Info(
+            "Calibration",
+            $"校准完成，agent={AgentCatalog.ToWireValue(agent)}，target={target}，x={point.X:F4}，y={point.Y:F4}");
     }
 
     private void UpdateCalibrationUi()
     {
-        InputPointText.Text = _settings.InputPoint is null ? "未设置" : "已设置";
-        SendPointText.Text = _settings.SendPoint is null ? "未设置" : "已设置";
-        ScrollPointText.Text = _settings.ScrollPoint is null ? "未设置" : "已设置";
-        SaveButton.IsEnabled = _settings.InputPoint is not null
-                               || _settings.SendPoint is not null
-                               || _settings.ScrollPoint is not null;
+        var profile = _settings.GetProfile(_selectedAgent);
+        InputPointText.Text = profile.InputPoint is null ? "未设置" : "已设置";
+        SendPointText.Text = profile.SendPoint is null ? "未设置" : "已设置";
+        ScrollPointText.Text = profile.ScrollPoint is null ? "未设置" : "已设置";
+        SaveButton.IsEnabled = _settingsDirty;
     }
 
     private void RemoveMouseHook()
@@ -451,10 +553,6 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(nint handle, out uint processId);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ClientToScreen(nint handle, ref PointStruct point);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Codex Phone Connect"
         Width="640"
-        Height="590"
+        Height="650"
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
@@ -22,8 +22,6 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0"
                     CornerRadius="12,12,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="18,0,8,0">
@@ -31,8 +29,7 @@
                                VerticalAlignment="Center"
                                FontSize="13"
                                Foreground="{StaticResource SecondaryTextBrush}" />
-                    <StackPanel HorizontalAlignment="Right"
-                                Orientation="Horizontal">
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button Content="−"
                                 Style="{StaticResource WindowControlButtonStyle}"
                                 Click="MinimizeButton_Click" />
@@ -48,7 +45,66 @@
                 <TextBlock Text="设置点击位置"
                            FontSize="22"
                            FontWeight="SemiBold"
-                           Margin="0,0,0,16" />
+                           Margin="0,0,0,12" />
+
+                <Border Background="{StaticResource PanelBackgroundBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="11"
+                        Padding="10"
+                        Height="58"
+                        Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="控制目标"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,18,0"
+                                   FontSize="13"
+                                   FontWeight="SemiBold" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="GptAgentButton"
+                                    Tag="gpt"
+                                    Height="36"
+                                    MinWidth="106"
+                                    Padding="10,5"
+                                    Click="GptAgentButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image x:Name="GptAgentIcon"
+                                           Width="18"
+                                           Height="18"
+                                           Margin="0,0,7,0"
+                                           Stretch="Uniform" />
+                                    <TextBlock Text="GPT" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ClaudeAgentButton"
+                                    Tag="claude"
+                                    Height="36"
+                                    MinWidth="106"
+                                    Padding="10,5"
+                                    Margin="8,0,0,0"
+                                    Click="ClaudeAgentButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image x:Name="ClaudeAgentIcon"
+                                           Width="18"
+                                           Height="18"
+                                           Margin="0,0,7,0"
+                                           Stretch="Uniform" />
+                                    <TextBlock Text="Claude" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock x:Name="ActiveAgentText"
+                                   Grid.Column="2"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource SecondaryTextStyle}"
+                                   Margin="18,0,6,0" />
+                    </Grid>
+                </Border>
 
                 <Border Background="{StaticResource PanelBackgroundBrush}"
                         BorderBrush="{StaticResource BorderBrush}"

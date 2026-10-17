@@ -1,5 +1,7 @@
 # Codex 手机电脑桥接对接复盘
 
+> 说明：本文保留早期单 Codex 链路记录。当前双目标实现以 [`dual-agent-integration-review.md`](dual-agent-integration-review.md) 为准，正式代码支持 GPT / Codex Desktop 与 Claude Desktop 两个目标。
+
 更新时间：2026-10-06
 
 ## 1. 目标

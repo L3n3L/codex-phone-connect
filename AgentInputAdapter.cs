@@ -4,9 +4,8 @@ using System.Windows;
 
 namespace CodexPhoneConnect;
 
-public sealed class CodexInputAdapter
+public sealed class AgentInputAdapter
 {
-    private const string CodexProcessName = "ChatGPT";
     private const int ShowRestore = 9;
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
@@ -16,55 +15,60 @@ public sealed class CodexInputAdapter
     private const uint KeyboardEventKeyUp = 0x0002;
     private const ushort VirtualKeyControl = 0x11;
     private const ushort VirtualKeyV = 0x56;
-    private nint _boundWindow;
+    private readonly Dictionary<AgentId, nint> _boundWindows = new();
 
-    public void BindWindow(nint window)
+    public void BindWindow(AgentId agent, nint window)
     {
-        if (window == 0 || !IsCodexWindow(window))
+        if (window == 0 || !IsAgentWindow(agent, window))
         {
-            BridgeLog.Warning("Input", "拒绝绑定非 Codex 窗口");
+            BridgeLog.Warning("Input", $"拒绝绑定非 {AgentCatalog.Get(agent).ProductName} 窗口");
             return;
         }
 
-        _boundWindow = window;
-        BridgeLog.Info("Input", $"已绑定 Codex 窗口，window=0x{window.ToInt64():X}");
+        _boundWindows[agent] = window;
+        BridgeLog.Info("Input", $"已绑定 {AgentCatalog.Get(agent).DisplayName} 窗口，window=0x{window.ToInt64():X}");
     }
 
-    public async Task SendAsync(string text, BridgeSettings settings, CancellationToken cancellationToken)
+    public async Task SendAsync(
+        AgentId agent,
+        string text,
+        AgentProfileSettings profile,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new ArgumentException("发送内容为空", nameof(text));
         }
 
-        if (!settings.IsCalibrated)
+        if (!profile.IsCalibrated)
         {
-            throw new InvalidOperationException("尚未完成输入框和发送按钮校准");
+            throw new InvalidOperationException($"尚未完成 {AgentCatalog.Get(agent).DisplayName} 的输入框和发送按钮校准");
         }
 
-        var window = FindCodexWindow();
+        var window = FindAgentWindow(agent);
         if (window == 0)
         {
-            throw new InvalidOperationException("未找到 Codex 窗口");
+            throw new InvalidOperationException($"未找到 {AgentCatalog.Get(agent).ProductName} 窗口");
         }
 
-        BridgeLog.Info("Input", $"开始发送，字符数={text.Length}，window=0x{window.ToInt64():X}");
+        var definition = AgentCatalog.Get(agent);
+        BridgeLog.Info("Input", $"开始发送，agent={definition.WireId}，字符数={text.Length}，window=0x{window.ToInt64():X}");
         var originalClipboard = Clipboard.GetDataObject();
         try
         {
-            ActivateWindow(window);
+            ActivateWindow(window, definition.DisplayName);
             await Task.Delay(120, cancellationToken);
 
-            ClickClientPoint(window, settings.InputPoint!);
+            ClickClientPoint(window, profile.InputPoint!);
             await Task.Delay(80, cancellationToken);
 
             Clipboard.SetText(text, TextDataFormat.UnicodeText);
             SendPasteShortcut();
             await Task.Delay(220, cancellationToken);
 
-            ClickClientPoint(window, settings.SendPoint!);
+            ClickClientPoint(window, profile.SendPoint!);
             await Task.Delay(120, cancellationToken);
-            BridgeLog.Info("Input", "已完成输入框粘贴和发送按钮点击");
+            BridgeLog.Info("Input", $"已完成 {definition.DisplayName} 输入框粘贴和发送按钮点击");
         }
         finally
         {
@@ -72,18 +76,22 @@ public sealed class CodexInputAdapter
         }
     }
 
-    public void Scroll(int deltaY, BridgeSettings settings, CancellationToken cancellationToken)
+    public void Scroll(
+        AgentId agent,
+        int deltaY,
+        AgentProfileSettings profile,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!settings.IsScrollCalibrated)
+        if (!profile.IsScrollCalibrated)
         {
-            throw new InvalidOperationException("尚未完成滚动区域校准");
+            throw new InvalidOperationException($"尚未完成 {AgentCatalog.Get(agent).DisplayName} 的滚动区域校准");
         }
 
-        var window = FindCodexWindow();
+        var window = FindAgentWindow(agent);
         if (window == 0)
         {
-            throw new InvalidOperationException("未找到已绑定的 Codex 窗口");
+            throw new InvalidOperationException($"未找到已绑定的 {AgentCatalog.Get(agent).ProductName} 窗口");
         }
 
         var boundedDelta = Math.Clamp(deltaY, -120, 120);
@@ -94,53 +102,25 @@ public sealed class CodexInputAdapter
 
         if (GetForegroundWindow() != window)
         {
-            ActivateWindow(window);
+            ActivateWindow(window, AgentCatalog.Get(agent).DisplayName);
         }
-        MoveClientPoint(window, settings.ScrollPoint!);
+
+        MoveClientPoint(window, profile.ScrollPoint!);
 
         // 跟随手机直觉：手指上滑（deltaY<0）时，内容向下；手指下滑时，内容向上。
         var wheelAmount = Math.Clamp(boundedDelta * 8, -960, 960);
         var inputs = new[] { CreateMouseWheelInput(wheelAmount) };
         if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
         {
-            throw new InvalidOperationException("无法向 Codex 注入鼠标滚轮");
+            throw new InvalidOperationException($"无法向 {AgentCatalog.Get(agent).DisplayName} 注入鼠标滚轮");
         }
 
-        BridgeLog.Debug("Input", $"已注入 Codex 滚轮，deltaY={boundedDelta}，wheel={wheelAmount}，window=0x{window.ToInt64():X}");
+        BridgeLog.Debug(
+            "Input",
+            $"已注入桌面窗口滚轮，agent={AgentCatalog.Get(agent).WireId}，deltaY={boundedDelta}，wheel={wheelAmount}，window=0x{window.ToInt64():X}");
     }
 
-    private nint FindCodexWindow()
-    {
-        if (IsCodexWindow(_boundWindow))
-        {
-            return _boundWindow;
-        }
-
-        var foreground = GetForegroundWindow();
-        if (IsCodexWindow(foreground))
-        {
-            return foreground;
-        }
-
-        foreach (var process in Process.GetProcessesByName(CodexProcessName))
-        {
-            try
-            {
-                if (IsCodexWindow(process.MainWindowHandle))
-                {
-                    return process.MainWindowHandle;
-                }
-            }
-            finally
-            {
-                process.Dispose();
-            }
-        }
-
-        return 0;
-    }
-
-    private static bool IsCodexWindow(nint window)
+    public bool IsAgentWindow(AgentId agent, nint window)
     {
         if (window == 0 || !IsWindowVisible(window))
         {
@@ -156,7 +136,7 @@ public sealed class CodexInputAdapter
         try
         {
             using var process = Process.GetProcessById((int)processId);
-            return string.Equals(process.ProcessName, CodexProcessName, StringComparison.OrdinalIgnoreCase);
+            return AgentCatalog.Get(agent).MatchesProcess(process.ProcessName);
         }
         catch (ArgumentException)
         {
@@ -164,26 +144,59 @@ public sealed class CodexInputAdapter
         }
     }
 
-    private static void ActivateWindow(nint window)
+    private nint FindAgentWindow(AgentId agent)
+    {
+        if (_boundWindows.TryGetValue(agent, out var boundWindow) && IsAgentWindow(agent, boundWindow))
+        {
+            return boundWindow;
+        }
+
+        var foreground = GetForegroundWindow();
+        if (IsAgentWindow(agent, foreground))
+        {
+            return foreground;
+        }
+
+        foreach (var processName in AgentCatalog.Get(agent).ProcessNames.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (var process in Process.GetProcessesByName(processName))
+            {
+                try
+                {
+                    if (IsAgentWindow(agent, process.MainWindowHandle))
+                    {
+                        return process.MainWindowHandle;
+                    }
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private static void ActivateWindow(nint window, string displayName)
     {
         var wasMinimized = IsIconic(window);
         var wasMaximized = IsZoomed(window);
         if (wasMinimized)
         {
-            // 只恢复最小化窗口。最大化窗口不能调用 SW_RESTORE，
-            // 否则 Windows 会把它恢复成之前的普通窗口尺寸。
+            // 只恢复最小化窗口。最大化窗口不调用 SW_RESTORE，避免被还原成普通窗口尺寸。
             ShowWindow(window, ShowRestore);
         }
 
         BringWindowToTop(window);
         if (!SetForegroundWindow(window))
         {
-            throw new InvalidOperationException("无法激活 Codex 窗口");
+            throw new InvalidOperationException($"无法激活 {displayName} 窗口");
         }
 
         BridgeLog.Debug(
             "Input",
-            $"已激活 Codex 窗口，window=0x{window.ToInt64():X}，最小化前={wasMinimized}，最大化前={wasMaximized}，最大化后={IsZoomed(window)}");
+            $"已激活 {displayName} 窗口，window=0x{window.ToInt64():X}，最小化前={wasMinimized}，最大化前={wasMaximized}，最大化后={IsZoomed(window)}");
     }
 
     private static void ClickClientPoint(nint window, CalibrationPoint point)
@@ -197,17 +210,17 @@ public sealed class CodexInputAdapter
         };
         if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
         {
-            throw new InvalidOperationException("无法点击 Codex 目标位置");
+            throw new InvalidOperationException("无法点击桌面目标位置");
         }
 
-        BridgeLog.Debug("Input", $"已点击 Codex 客户区比例坐标 x={point.X:F4}，y={point.Y:F4}");
+        BridgeLog.Debug("Input", $"已点击客户区比例坐标 x={point.X:F4}，y={point.Y:F4}");
     }
 
     private static void MoveClientPoint(nint window, CalibrationPoint point)
     {
         if (!GetClientRect(window, out var clientRect))
         {
-            throw new InvalidOperationException("无法读取 Codex 客户区位置");
+            throw new InvalidOperationException("无法读取桌面窗口客户区位置");
         }
 
         var width = Math.Max(1, clientRect.Right - clientRect.Left);
@@ -219,12 +232,12 @@ public sealed class CodexInputAdapter
         };
         if (!ClientToScreen(window, ref clientPoint))
         {
-            throw new InvalidOperationException("无法将 Codex 客户区坐标转换为屏幕坐标");
+            throw new InvalidOperationException("无法将客户区坐标转换为屏幕坐标");
         }
 
         if (!SetCursorPos(clientPoint.X, clientPoint.Y))
         {
-            throw new InvalidOperationException("无法移动鼠标到 Codex 目标位置");
+            throw new InvalidOperationException("无法移动鼠标到桌面目标位置");
         }
     }
 
@@ -256,7 +269,7 @@ public sealed class CodexInputAdapter
 
         if (SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) != inputs.Length)
         {
-            throw new InvalidOperationException("无法向 Codex 发送粘贴快捷键");
+            throw new InvalidOperationException("无法发送粘贴快捷键");
         }
 
         BridgeLog.Debug("Input", "已发送 Ctrl+V");

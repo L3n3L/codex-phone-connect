@@ -1,22 +1,39 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CodexPhoneConnect;
 
 public sealed class BridgeSettings
 {
-    public const int CurrentCoordinateVersion = 3;
+    public const int CurrentCoordinateVersion = 4;
 
-    public int CoordinateVersion { get; set; }
+    public int CoordinateVersion { get; set; } = CurrentCoordinateVersion;
 
+    public AgentId ActiveAgent { get; set; } = AgentId.Gpt;
+
+    public AgentProfileSettings Gpt { get; set; } = new();
+
+    public AgentProfileSettings Claude { get; set; } = new();
+
+    public AgentProfileSettings GetProfile(AgentId agent)
+    {
+        return agent == AgentId.Claude ? Claude : Gpt;
+    }
+}
+
+public sealed class AgentProfileSettings
+{
     public CalibrationPoint? InputPoint { get; set; }
 
     public CalibrationPoint? SendPoint { get; set; }
 
     public CalibrationPoint? ScrollPoint { get; set; }
 
+    [JsonIgnore]
     public bool IsCalibrated => InputPoint is not null && SendPoint is not null;
 
+    [JsonIgnore]
     public bool IsScrollCalibrated => ScrollPoint is not null;
 }
 
@@ -46,23 +63,7 @@ public sealed class BridgeSettingsStore
     {
         if (!File.Exists(FilePath))
         {
-            var legacyRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "CodexBridge");
-            var legacyFile = Path.Combine(legacyRoot, "settings.json");
-            if (File.Exists(legacyFile))
-            {
-                try
-                {
-                    Directory.CreateDirectory(RootDirectory);
-                    File.Copy(legacyFile, FilePath);
-                    BridgeLog.Info("Settings", "已迁移旧版 Codex Bridge 配置");
-                }
-                catch (Exception exception)
-                {
-                    BridgeLog.Warning("Settings", $"迁移旧版配置失败：{exception.Message}");
-                }
-            }
+            TryMigrateLegacyFile();
         }
 
         if (!File.Exists(FilePath))
@@ -74,22 +75,46 @@ public sealed class BridgeSettingsStore
         try
         {
             var json = File.ReadAllText(FilePath);
-            BridgeSettings settings = JsonSerializer.Deserialize<BridgeSettings>(json, JsonOptions) ?? new BridgeSettings();
-            if (settings.CoordinateVersion == 2)
+            using var document = JsonDocument.Parse(json);
+            var version = document.RootElement.TryGetProperty("CoordinateVersion", out var versionElement)
+                && versionElement.TryGetInt32(out var parsedVersion)
+                ? parsedVersion
+                : 0;
+
+            if (version is 0 or 2 or 3)
             {
-                // v2 的输入框和发送按钮坐标仍然兼容，新增滚动坐标后迁移为 v3。
-                settings.CoordinateVersion = BridgeSettings.CurrentCoordinateVersion;
-                BridgeLog.Info("Settings", "已将旧版坐标配置迁移到 v3，请补充滚动区域校准");
-                return settings;
+                var legacy = JsonSerializer.Deserialize<LegacyBridgeSettings>(json, JsonOptions) ?? new();
+                if (legacy.InputPoint is not null || legacy.SendPoint is not null || legacy.ScrollPoint is not null)
+                {
+                    var migrated = new BridgeSettings
+                    {
+                        CoordinateVersion = BridgeSettings.CurrentCoordinateVersion,
+                        Gpt = new AgentProfileSettings
+                        {
+                            InputPoint = legacy.InputPoint,
+                            SendPoint = legacy.SendPoint,
+                            ScrollPoint = legacy.ScrollPoint,
+                        },
+                    };
+                    BridgeLog.Info("Settings", $"已将旧版单智能体配置迁移到 GPT/Codex 配置，旧版本={version}");
+                    Save(migrated);
+                    return migrated;
+                }
             }
 
-            if (settings.CoordinateVersion != BridgeSettings.CurrentCoordinateVersion)
+            if (version != BridgeSettings.CurrentCoordinateVersion)
             {
-                BridgeLog.Warning("Settings", $"配置坐标版本过期（{settings.CoordinateVersion}），需要重新校准");
+                BridgeLog.Warning("Settings", $"配置坐标版本过期（{version}），需要重新校准");
                 return new BridgeSettings();
             }
 
-            BridgeLog.Info("Settings", $"已加载配置，输入框={settings.InputPoint is not null}，发送按钮={settings.SendPoint is not null}，滚动区域={settings.ScrollPoint is not null}");
+            BridgeSettings settings = JsonSerializer.Deserialize<BridgeSettings>(json, JsonOptions) ?? new BridgeSettings();
+            settings.Gpt ??= new AgentProfileSettings();
+            settings.Claude ??= new AgentProfileSettings();
+            BridgeLog.Info(
+                "Settings",
+                $"已加载双智能体配置，active={AgentCatalog.ToWireValue(settings.ActiveAgent)}，"
+                + $"gptInput={settings.Gpt.InputPoint is not null}，claudeInput={settings.Claude.InputPoint is not null}");
             return settings;
         }
         catch (Exception exception)
@@ -106,5 +131,39 @@ public sealed class BridgeSettingsStore
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         File.WriteAllText(FilePath, json);
         BridgeLog.Info("Settings", $"配置已保存：{FilePath}");
+    }
+
+    private void TryMigrateLegacyFile()
+    {
+        var legacyRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CodexBridge");
+        var legacyFile = Path.Combine(legacyRoot, "settings.json");
+        if (!File.Exists(legacyFile))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(RootDirectory);
+            File.Copy(legacyFile, FilePath);
+            BridgeLog.Info("Settings", "已迁移旧版 Codex Bridge 配置");
+        }
+        catch (Exception exception)
+        {
+            BridgeLog.Warning("Settings", $"迁移旧版配置失败：{exception.Message}");
+        }
+    }
+
+    private sealed class LegacyBridgeSettings
+    {
+        public int CoordinateVersion { get; set; }
+
+        public CalibrationPoint? InputPoint { get; set; }
+
+        public CalibrationPoint? SendPoint { get; set; }
+
+        public CalibrationPoint? ScrollPoint { get; set; }
     }
 }

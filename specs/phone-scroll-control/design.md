@@ -1,4 +1,4 @@
-# 手机遥控 Codex 滚动：设计
+# 手机遥控 GPT / Claude 滚动：设计
 
 ## 总体链路
 
@@ -7,23 +7,24 @@
     │ pointermove → 增量合并 → POST /api/control/scroll
     ▼
 BridgeWebServer
-    │ ScrollRequest
+    │ ScrollRequest + agentId 快照
     ▼
 BridgeJobQueue（单线程）
     ▼
-CodexInputAdapter
-    │ 激活 ChatGPT 窗口 → 定位聊天区域 → SendInput 鼠标滚轮
+AgentInputAdapter
+    │ 激活目标窗口 → 定位聊天区域 → SendInput 鼠标滚轮
     ▼
-电脑 Codex 已绑定窗口
+电脑 GPT / Claude 已绑定窗口
 ```
 
 ## 模块边界
 
-- `BridgeWebServer`：提供手机静态页面、发送接口和滚动接口；不读取聊天内容。
+- `BridgeWebServer`：提供手机静态页面、目标选择、发送接口和滚动接口；不读取聊天内容。
 - `BridgeJobQueue`：统一串行发送文字和滚动指令，避免输入事件互相打断。
-- `CodexInputAdapter`：查找 Codex 窗口、激活窗口、将相对客户区坐标转换为屏幕坐标，并注入滚轮。
-- `BridgeSettings`：增加 `ScrollPoint`，与输入框、发送按钮一起保存。
-- `MainWindow`：增加聊天区域校准入口和校准状态展示。
+- `AgentInputAdapter`：按 `agentId` 查找目标窗口、激活窗口、将相对客户区坐标转换为屏幕坐标，并注入滚轮。
+- `BridgeSettings`：按目标保存 `InputPoint`、`SendPoint`、`ScrollPoint`。
+- `MainWindow`：选择目标后展示该目标的聊天区域校准状态。
+- `PhoneAgentShell`：叠加目标选择器，不触碰冻结的粒子触摸页。
 
 ## HTTP 契约
 
@@ -34,12 +35,13 @@ CodexInputAdapter
 ```json
 {
   "deltaY": -180,
+  "agentId": "gpt",
   "requestId": "手机端唯一 ID",
   "token": "局域网配对码"
 }
 ```
 
-`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
+`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。`agentId` 可为 `gpt` 或 `claude`；未传时兼容旧页面，使用当前目标。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
 
 正式页面实际发送的是相邻 `pointermove` 的增量。页面在滑动超过 36px 后开始发送，并保持最多一个请求在途；请求返回前产生的新增量进入浏览器端累加器，随后合并成下一条请求。这样能保持接近实时，又不会因为局域网延迟形成请求队列。
 
@@ -58,18 +60,26 @@ CodexInputAdapter
 
 ```json
 {
-  "inputPoint": { "x": 0.50, "y": 0.92 },
-  "sendPoint": { "x": 0.94, "y": 0.92 },
-  "scrollPoint": { "x": 0.55, "y": 0.45 }
+  "activeAgent": 0,
+  "gpt": {
+    "inputPoint": { "x": 0.50, "y": 0.92 },
+    "sendPoint": { "x": 0.94, "y": 0.92 },
+    "scrollPoint": { "x": 0.55, "y": 0.45 }
+  },
+  "claude": {
+    "inputPoint": null,
+    "sendPoint": null,
+    "scrollPoint": null
+  }
 }
 ```
 
-滚动不点击聊天区域，只把鼠标移动到校准点并发送 `MOUSEEVENTF_WHEEL`。窗口移动和 DPI 变化仍通过客户区比例换算处理。校准时记录的窗口句柄优先使用；句柄失效后才尝试当前前台或可见的 `ChatGPT` 主窗口，并拒绝非 Codex 进程。
+滚动不点击聊天区域，只把鼠标移动到校准点并发送 `MOUSEEVENTF_WHEEL`。窗口移动和 DPI 变化仍通过客户区比例换算处理。窗口句柄只在运行时缓存；句柄失效后按目标进程名查找可见主窗口，并拒绝其他应用。
 
 ## 手机界面
 
 - 顶部和中部为空白遥控区；
-- 首次进入时显示一行很淡的“上下滑动控制 Codex”，首次成功滑动后隐藏；
+- 首次进入时显示一行很淡的滑动提示，首次成功滑动后隐藏；
 - 底部固定输入框和“发送”按钮；
 - 页面设置 `touch-action: none`，阻止浏览器自身滚动；
 - 手机不接收 Codex 内容。
@@ -79,7 +89,7 @@ CodexInputAdapter
 - 发送和滚动共用单线程队列，确保剪贴板、键盘和鼠标输入不会并发注入；
 - 滚动消息在手机端按帧合并，在桌面端按命令顺序执行；
 - 滑动命令只记录方向、距离和命令 ID，不记录聊天正文；
-- 未校准、找不到 Codex、无法激活或 `SendInput` 失败时返回失败状态并写入日志；
+- 未校准、找不到目标窗口、无法激活或 `SendInput` 失败时返回失败状态并写入日志；
 - 当前 LAN 服务仍不提供身份认证，后续应在开放滚动控制前增加配对 Token。
 
 ## 测试策略

@@ -1,5 +1,7 @@
 # Implementation Plan
 
+本规格当前覆盖 GPT / Codex Desktop 与 Claude Desktop 两个目标；两个目标共用协议和串行队列，但各自保存窗口校准点。
+
 - [x] 1. 固化需求和非目标
   - 明确手机不显示聊天记录，只发送输入和滚动控制。
   - 明确发送与滚动共用串行队列。
@@ -17,7 +19,7 @@
 
 - [x] 4. 增加滚轮输入适配器
   - 将手机 `deltaY` 转换为受限的 Windows 滚轮量。
-  - 激活 Codex、定位校准点并注入滚轮。
+  - 按 agentId 激活 GPT / Claude、定位校准点并注入滚轮。
   - _Requirement: 1, 2, 7_
 
 - [x] 5. 扩展单线程命令队列和 HTTP 接口

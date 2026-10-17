@@ -7,4 +7,5 @@ obj/
 *.sln.docstates
 logs/*.log
 release/
+.tmp-openai-brand/
 

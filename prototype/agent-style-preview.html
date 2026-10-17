@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex Phone Connect · 双智能体样式样本</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      --ink: #282927;
+      --muted: #777873;
+      --line: #e2e2dd;
+      --panel: #f7f7f5;
+      --accent: #2d2d2d;
+      --phone-bg: #ffffff;
+      --phone-ink: #30322f;
+      --phone-muted: #92958e;
+      --phone-line: #e8e9e4;
+      --particle-a: #4e9bd1;
+      --particle-b: #9c81d8;
+      --particle-c: #69bcae;
+      --particle-glow: rgba(103, 161, 205, .18);
+      --send-bg: #30322f;
+      --send-ink: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      padding: 34px;
+      color: var(--ink);
+      background: #f1f1ee;
+    }
+
+    .page-title {
+      max-width: 1160px;
+      margin: 0 auto 20px;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: .01em;
+      color: #777873;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: minmax(520px, 1fr) 390px;
+      gap: 34px;
+      max-width: 1160px;
+      margin: 0 auto;
+      align-items: start;
+    }
+
+    .artboard-label {
+      margin: 0 0 10px 4px;
+      color: #81827d;
+      font-size: 12px;
+      letter-spacing: .06em;
+    }
+
+    /* Desktop settings preview */
+    .desktop-window {
+      overflow: hidden;
+      border: 1px solid #d9d9d4;
+      border-radius: 13px;
+      background: #fff;
+      box-shadow: 0 16px 40px rgba(43, 43, 38, .11);
+    }
+
+    .window-titlebar {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px 0 18px;
+      color: #74756f;
+      font-size: 13px;
+    }
+
+    .window-controls { display: flex; gap: 2px; }
+
+    .window-control {
+      width: 34px;
+      height: 30px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #6f706c;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .window-control:hover { background: #f1f1ee; }
+
+    .desktop-body { padding: 30px 30px 24px; }
+
+    .desktop-heading {
+      margin: 0 0 18px;
+      font-size: 26px;
+      line-height: 1.15;
+      font-weight: 600;
+      letter-spacing: -.03em;
+    }
+
+    .target-switch {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 22px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f7f7f5;
+    }
+
+    .target-button {
+      flex: 1;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
+      color: #666762;
+      font: inherit;
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .target-button:hover { color: var(--ink); background: #fff; }
+
+    .target-button.is-active {
+      color: var(--ink);
+      background: #fff;
+      border-color: #deded9;
+      box-shadow: 0 2px 7px rgba(35, 35, 31, .06);
+    }
+
+    .target-button small {
+      display: block;
+      margin-top: 2px;
+      color: #989993;
+      font-size: 11px;
+    }
+
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 24px;
+      display: block;
+      object-fit: contain;
+    }
+
+    .brand-mark.gpt { background: #fff; border-radius: 50%; }
+
+    .calibration-list { display: grid; gap: 10px; }
+
+    .calibration-card {
+      min-height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel);
+    }
+
+    .calibration-name { font-size: 14px; font-weight: 600; }
+
+    .calibration-state {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .calibration-button {
+      min-width: 66px;
+      height: 34px;
+      border: 1px solid #dcdcd7;
+      border-radius: 8px;
+      background: #fff;
+      color: #30312f;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .calibration-button:hover { background: #f1f1ee; }
+
+    .connection-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+      color: #777873;
+      font-size: 12px;
+    }
+
+    .connection-status { display: inline-flex; align-items: center; gap: 8px; }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #61a56f;
+      box-shadow: 0 0 0 4px rgba(97, 165, 111, .13);
+    }
+
+    /* Phone preview */
+    .phone-frame {
+      position: relative;
+      width: 360px;
+      height: 720px;
+      overflow: hidden;
+      margin: 0 auto;
+      border: 7px solid #262725;
+      border-radius: 33px;
+      background: var(--phone-bg);
+      color: var(--phone-ink);
+      box-shadow: 0 18px 42px rgba(37, 37, 33, .18);
+      transition: background 520ms ease, color 520ms ease;
+    }
+
+    .phone-frame.claude-mode {
+      color-scheme: dark;
+      --phone-bg: #090b0d;
+      --phone-ink: #f4f0e8;
+      --phone-muted: #9e9b94;
+      --phone-line: #2a2e31;
+      --particle-a: #ee9561;
+      --particle-b: #e6c07d;
+      --particle-c: #d47f9f;
+      --particle-glow: rgba(220, 140, 96, .2);
+      --send-bg: #f0e6d8;
+      --send-ink: #171715;
+      background: var(--phone-bg);
+    }
+
+    .phone-topbar {
+      position: absolute;
+      z-index: 4;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .phone-switch {
+      display: inline-flex;
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--phone-line);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--phone-bg) 82%, transparent);
+      backdrop-filter: blur(12px);
+      transition: background 520ms ease, border-color 520ms ease;
+    }
+
+    .phone-agent {
+      width: 77px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--phone-muted);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 220ms ease, color 220ms ease;
+    }
+
+    .phone-agent .brand-mark { width: 17px; height: 17px; flex-basis: 17px; }
+
+    .phone-frame.claude-mode .phone-agent .brand-mark.gpt {
+      background: #fff;
+    }
+
+    .phone-agent.is-active {
+      background: color-mix(in srgb, var(--phone-ink) 8%, transparent);
+      color: var(--phone-ink);
+    }
+
+    .phone-mode-label {
+      padding: 6px 9px;
+      border: 1px solid var(--phone-line);
+      border-radius: 8px;
+      color: var(--phone-muted);
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: .02em;
+      transition: border-color 520ms ease, color 520ms ease;
+    }
+
+    .particle-stage {
+      position: absolute;
+      inset: 58px 0 86px;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .particle-stage::before {
+      content: "";
+      position: absolute;
+      width: 230px;
+      height: 340px;
+      left: 50%;
+      top: 42%;
+      transform: translate(-50%, -50%);
+      border-radius: 48% 52% 45% 55%;
+      background: radial-gradient(ellipse at 50% 45%, var(--particle-glow), transparent 68%);
+      filter: blur(12px);
+      transition: background 520ms ease;
+    }
+
+    .particles { position: absolute; inset: 0; }
+
+    .particle {
+      position: absolute;
+      width: var(--size);
+      height: var(--size);
+      left: var(--x);
+      top: var(--y);
+      border-radius: 50%;
+      background: var(--particle-color);
+      opacity: var(--opacity);
+      box-shadow: 0 0 9px color-mix(in srgb, var(--particle-color) 44%, transparent);
+      transform: translate3d(0, 0, 0);
+      transition: background 520ms ease, box-shadow 520ms ease;
+      animation: settle 6s ease-in-out infinite alternate;
+      animation-delay: var(--delay);
+    }
+
+    .particle:nth-child(3n) { animation-duration: 8s; }
+    .particle:nth-child(4n) { animation-duration: 5.3s; }
+
+    @keyframes settle {
+      from { transform: translate3d(0, 0, 0) scale(.94); }
+      to { transform: translate3d(var(--drift-x), var(--drift-y), 0) scale(1.08); }
+    }
+
+    .field-copy {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 42px;
+      color: var(--phone-muted);
+      font-size: 12px;
+      text-align: center;
+      letter-spacing: .05em;
+      transition: color 520ms ease;
+    }
+
+    .composer {
+      position: absolute;
+      z-index: 5;
+      left: 13px;
+      right: 13px;
+      bottom: 13px;
+      display: flex;
+      gap: 7px;
+      align-items: flex-end;
+      padding: 6px;
+      border: 1px solid var(--phone-line);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--phone-bg) 92%, transparent);
+      box-shadow: 0 7px 22px color-mix(in srgb, var(--phone-ink) 7%, transparent);
+      backdrop-filter: blur(14px);
+      transition: background 520ms ease, border-color 520ms ease, box-shadow 520ms ease;
+    }
+
+    .composer textarea {
+      flex: 1;
+      min-width: 0;
+      height: 39px;
+      padding: 9px 10px;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--phone-ink);
+      font: inherit;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .composer textarea::placeholder { color: var(--phone-muted); }
+
+    .send-button {
+      width: 62px;
+      height: 39px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--send-bg);
+      color: var(--send-ink);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 520ms ease, color 520ms ease, transform 160ms ease;
+    }
+
+    .send-button:active { transform: scale(.96); }
+
+    .preview-note {
+      max-width: 1160px;
+      margin: 18px auto 0;
+      color: #8a8b85;
+      font-size: 12px;
+    }
+
+    @media (max-width: 920px) {
+      body { padding: 22px 14px; }
+      .preview-grid { grid-template-columns: 1fr; }
+      .phone-frame { width: min(360px, 100%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <p class="page-title">Codex Phone Connect · 双智能体样式样本</p>
+
+  <main class="preview-grid">
+    <section>
+      <p class="artboard-label">电脑端设置窗口</p>
+      <div class="desktop-window">
+        <header class="window-titlebar">
+          <span>Codex Bridge</span>
+          <div class="window-controls" aria-label="窗口控制">
+            <button class="window-control" type="button" aria-label="最小化">−</button>
+            <button class="window-control" type="button" aria-label="关闭">×</button>
+          </div>
+        </header>
+
+        <div class="desktop-body">
+          <h1 class="desktop-heading">设置点击位置</h1>
+
+          <div class="target-switch" role="tablist" aria-label="选择操作对象">
+            <button class="target-button is-active" type="button" data-agent="gpt" role="tab" aria-selected="true">
+              <img class="brand-mark gpt" src="../assets/brand/openai-symbol.svg" alt="" />
+              <span><strong>GPT</strong><small>Codex Desktop</small></span>
+            </button>
+            <button class="target-button" type="button" data-agent="claude" role="tab" aria-selected="false">
+              <img class="brand-mark claude" src="../assets/brand/claude.svg" alt="" />
+              <span><strong>Claude</strong><small>Claude Desktop</small></span>
+            </button>
+          </div>
+
+          <div class="calibration-list">
+            <div class="calibration-card">
+              <div><div class="calibration-name">输入框</div><div class="calibration-state" data-state="input">已设置</div></div>
+              <button class="calibration-button" type="button">设置</button>
+            </div>
+            <div class="calibration-card">
+              <div><div class="calibration-name">发送按钮</div><div class="calibration-state" data-state="send">已设置</div></div>
+              <button class="calibration-button" type="button">设置</button>
+            </div>
+            <div class="calibration-card">
+              <div><div class="calibration-name">滚动区域</div><div class="calibration-state" data-state="scroll">已设置</div></div>
+              <button class="calibration-button" type="button">设置</button>
+            </div>
+          </div>
+
+          <div class="connection-row">
+            <span class="connection-status"><i class="status-dot"></i>手机服务运行中</span>
+            <span>三个位置分别保存</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <p class="artboard-label">手机端遥控窗口</p>
+      <div class="phone-frame" id="phone-frame">
+        <div class="phone-topbar">
+          <div class="phone-switch" role="tablist" aria-label="选择智能体">
+            <button class="phone-agent is-active" type="button" data-agent="gpt" role="tab" aria-selected="true">
+              <img class="brand-mark gpt" src="../assets/brand/openai-symbol.svg" alt="" />
+              GPT
+            </button>
+            <button class="phone-agent" type="button" data-agent="claude" role="tab" aria-selected="false">
+              <img class="brand-mark claude" src="../assets/brand/claude.svg" alt="" />
+              Claude
+            </button>
+          </div>
+          <div class="phone-mode-label" id="phone-mode-label">GPT · 已连接</div>
+        </div>
+
+        <div class="particle-stage" aria-label="滑动遥控区域">
+          <div class="particles" id="particles"></div>
+          <div class="field-copy" id="field-copy">上下滑动，控制 GPT 窗口滚动</div>
+        </div>
+
+        <form class="composer" onsubmit="return false">
+          <textarea rows="1" placeholder="输入要发送给 GPT"></textarea>
+          <button class="send-button" type="button">发送</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <p class="preview-note">样式样本：点击任意一处 GPT / Claude 选择按钮，查看模式切换。当前只展示视觉和交互，不连接真实桥接服务。</p>
+
+  <script>
+    const phone = document.getElementById('phone-frame');
+    const label = document.getElementById('phone-mode-label');
+    const fieldCopy = document.getElementById('field-copy');
+    const phoneButtons = [...document.querySelectorAll('.phone-agent')];
+    const targetButtons = [...document.querySelectorAll('.target-button')];
+    const states = [...document.querySelectorAll('[data-state]')];
+    const textarea = document.querySelector('.composer textarea');
+    const particles = document.getElementById('particles');
+
+    const particleColors = ['var(--particle-a)', 'var(--particle-b)', 'var(--particle-c)'];
+    for (let index = 0; index < 115; index += 1) {
+      const dot = document.createElement('i');
+      const angle = (index * 2.39996) % (Math.PI * 2);
+      const distance = Math.pow((index * 0.6180339887) % 1, .62);
+      const x = 50 + Math.cos(angle) * 37 * distance;
+      const y = 44 + Math.sin(angle) * 36 * distance;
+      dot.className = 'particle';
+      dot.style.setProperty('--x', `${x}%`);
+      dot.style.setProperty('--y', `${y}%`);
+      dot.style.setProperty('--size', `${(1 + (index % 4) * .55).toFixed(2)}px`);
+      dot.style.setProperty('--opacity', `${(.38 + (index % 7) * .08).toFixed(2)}`);
+      dot.style.setProperty('--particle-color', particleColors[index % particleColors.length]);
+      dot.style.setProperty('--drift-x', `${((index % 5) - 2) * 1.8}px`);
+      dot.style.setProperty('--drift-y', `${((index % 7) - 3) * 1.4}px`);
+      dot.style.setProperty('--delay', `${-(index % 9) * .48}s`);
+      particles.appendChild(dot);
+    }
+
+    function setAgent(agent) {
+      const isClaude = agent === 'claude';
+      phone.classList.toggle('claude-mode', isClaude);
+      label.textContent = isClaude ? 'Claude · 已连接' : 'GPT · 已连接';
+      fieldCopy.textContent = isClaude ? '上下滑动，控制 Claude 窗口滚动' : '上下滑动，控制 GPT 窗口滚动';
+      textarea.placeholder = isClaude ? '输入要发送给 Claude' : '输入要发送给 GPT';
+
+      for (const button of phoneButtons) {
+        const active = button.dataset.agent === agent;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      for (const button of targetButtons) {
+        const active = button.dataset.agent === agent;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      for (const state of states) {
+        state.textContent = '已设置';
+      }
+    }
+
+    [...phoneButtons, ...targetButtons].forEach((button) => {
+      button.addEventListener('click', () => setAgent(button.dataset.agent));
+    });
+  </script>
+</body>
+</html>
