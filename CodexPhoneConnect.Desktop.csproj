@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CodexPhoneConnect</AssemblyName>
     <RootNamespace>CodexPhoneConnect</RootNamespace>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets\codex-phone-connect.ico</ApplicationIcon>
   </PropertyGroup>
