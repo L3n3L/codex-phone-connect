@@ -6,8 +6,11 @@
 手机触摸滑动
     │ pointermove → 增量合并 → POST /api/control/scroll
     ▼
+PhoneAgentShell
+    │ 在 HTTP 边界补充显式 agentId
+    ▼
 BridgeWebServer
-    │ ScrollRequest + agentId 快照
+    │ 校验并快照 agentId
     ▼
 BridgeJobQueue（单线程）
     ▼
@@ -24,7 +27,7 @@ AgentInputAdapter
 - `AgentInputAdapter`：按 `agentId` 查找目标窗口、激活窗口、将相对客户区坐标转换为屏幕坐标，并注入滚轮。
 - `BridgeSettings`：按目标保存 `InputPoint`、`SendPoint`、`ScrollPoint`。
 - `MainWindow`：选择目标后展示该目标的聊天区域校准状态。
-- `PhoneAgentShell`：叠加目标选择器，不触碰冻结的粒子触摸页。
+- `PhoneAgentShell`：叠加目标选择器，并在不修改冻结粒子页的前提下给发送、滚动请求补充 `agentId`。
 
 ## HTTP 契约
 
@@ -41,7 +44,7 @@ AgentInputAdapter
 }
 ```
 
-`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。`agentId` 可为 `gpt` 或 `claude`；未传时兼容旧页面，使用当前目标。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
+`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。`agentId` 应为 `gpt` 或 `claude`；正式手机页会在外层 HTTP 边界显式补充它，未传时暂时兼容旧页面并使用当前目标。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
 
 正式页面实际发送的是相邻 `pointermove` 的增量。页面在滑动超过 36px 后开始发送，并保持最多一个请求在途；请求返回前产生的新增量进入浏览器端累加器，随后合并成下一条请求。这样能保持接近实时，又不会因为局域网延迟形成请求队列。
 

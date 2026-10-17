@@ -169,9 +169,42 @@ public static class PhoneAgentShell
           if (!root) return;
           const buttons = [...root.querySelectorAll('[data-agent]')];
           const connection = document.querySelector('.connection');
+          const state = { selectedAgent: 'gpt', statusKnown: false, userSelected: false };
 
-          const render = (agent) => {
+          // The frozen page still calls /api/jobs and /api/control/scroll without
+          // an agentId. Keep that page unchanged and add the explicit target at
+          // the integration boundary instead.
+          const nativeFetch = window.fetch.bind(window);
+          const isTargetRequest = (input) => {
+            const rawUrl = typeof input === 'string' ? input : input && input.url;
+            if (!rawUrl) return false;
+            const path = new URL(rawUrl, window.location.href).pathname;
+            return path === '/api/jobs' || path === '/api/control/scroll';
+          };
+
+          window.fetch = (input, init) => {
+            if (isTargetRequest(input) && init && typeof init.body === 'string') {
+              try {
+                const payload = JSON.parse(init.body);
+                if (payload && typeof payload === 'object' && !Array.isArray(payload)
+                    && (state.statusKnown || state.userSelected)
+                    && !Object.prototype.hasOwnProperty.call(payload, 'agentId')) {
+                  init = {
+                    ...init,
+                    body: JSON.stringify({ ...payload, agentId: state.selectedAgent })
+                  };
+                }
+              } catch (_) {
+                // Leave non-JSON requests untouched; the original page owns them.
+              }
+            }
+            return nativeFetch(input, init);
+          };
+
+          const render = (agent, fromUser = false) => {
             const selected = agent === 'claude' ? 'claude' : 'gpt';
+            if (fromUser) state.userSelected = true;
+            state.selectedAgent = selected;
             root.dataset.agent = selected;
             document.documentElement.dataset.agentTheme = selected;
             document.body.dataset.agentTheme = selected;
@@ -183,7 +216,7 @@ public static class PhoneAgentShell
           };
 
           const choose = async (agent) => {
-            render(agent);
+            render(agent, true);
             buttons.forEach((button) => { button.disabled = true; });
             try {
               const response = await fetch('/api/control/agent', {
@@ -208,8 +241,13 @@ public static class PhoneAgentShell
 
           fetch('/api/status')
             .then((response) => response.ok ? response.json() : null)
-            .then((status) => status && render(status.activeAgent || 'gpt'))
-            .catch(() => render('gpt'));
+            .then((status) => {
+              if (status) {
+                render(status.activeAgent || 'gpt');
+                state.statusKnown = true;
+              }
+            })
+            .catch(() => {});
         })();
       </script>
       """;

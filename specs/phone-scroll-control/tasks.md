@@ -36,3 +36,14 @@
   - 执行构建和静态检查。
   - 已手动验证上滑、下滑、滚动增量注入和发送回归。
   - _Requirement: 1-7_
+
+- [x] 8. 将目标路由从全局状态下沉到每条手机请求
+  - 保持冻结的粒子页面不变，在 `PhoneAgentShell` 的 HTTP 边界补充 `agentId`。
+  - 服务端优先使用显式目标，保留 `activeAgent` 作为旧版请求兼容回退。
+  - 日志记录显式路由和兼容回退的来源。
+  - _Requirement: 1, 5, 6, 8_
+
+- [ ] 9. 增加执行结果回执
+  - 为发送和滚动命令增加 queued、executing、succeeded、failed 状态。
+  - 手机端展示真实执行结果，而不是只显示已入队。
+  - _Requirement: 5, 7_

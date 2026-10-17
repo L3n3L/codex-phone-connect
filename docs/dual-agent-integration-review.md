@@ -84,7 +84,9 @@ UI / HTTP 请求
 - `BridgeWebServer`：手机切换通过 `/api/control/agent`，发送与滚动请求在进入队列前解析并快照 `agentId`。
 - `BridgeJobQueue`：仍然只有一个串行队列，确保鼠标、键盘、剪贴板不会跨窗口并发争抢。
 - `AgentInputAdapter`：按目标查找窗口、激活窗口、点击归一化坐标、粘贴发送、注入滚轮。
-- `PhoneAgentShell`：只叠加目标选择器，不修改冻结的 `prototype/phone-scroll.html`。
+- `PhoneAgentShell`：只叠加目标选择器和 HTTP 路由边界，不修改冻结的 `prototype/phone-scroll.html`；它会给原页面的发送、滚动请求补充显式 `agentId`。
+
+本轮目标路由的详细执行记录见：[agent-routing-execution-review.md](agent-routing-execution-review.md)。
 
 ## 5. 界面结构
 

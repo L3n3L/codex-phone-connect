@@ -113,7 +113,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
                 return Results.BadRequest(new { error = "text_required" });
             }
 
-            if (!TryResolveAgent(request.AgentId, out var agent))
+            if (!TryResolveAgent(request.AgentId, out var agent, out var agentSource))
             {
                 BridgeLog.Warning("Http", $"拒绝未知智能体消息，agent={request.AgentId ?? "-"}");
                 return Results.BadRequest(new { error = "unknown_agent" });
@@ -122,7 +122,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
             var jobId = Guid.NewGuid().ToString("N");
             BridgeLog.Info(
                 "Http",
-                $"收到发送任务，jobId={jobId}，agent={AgentCatalog.ToWireValue(agent)}，字符数={request.Text.Length}，requestId={request.RequestId ?? "-"}");
+                $"收到发送任务，jobId={jobId}，agent={AgentCatalog.ToWireValue(agent)}，source={agentSource}，字符数={request.Text.Length}，requestId={request.RequestId ?? "-"}");
             try
             {
                 JobReceived?.Invoke(this, new SendJobReceivedEventArgs(
@@ -147,7 +147,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
                 return Results.BadRequest(new { error = "delta_required" });
             }
 
-            if (!TryResolveAgent(request.AgentId, out var agent))
+            if (!TryResolveAgent(request.AgentId, out var agent, out var agentSource))
             {
                 BridgeLog.Warning("Http", $"拒绝未知智能体滚动，agent={request.AgentId ?? "-"}");
                 return Results.BadRequest(new { error = "unknown_agent" });
@@ -156,7 +156,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
             var commandId = Guid.NewGuid().ToString("N");
             BridgeLog.Debug(
                 "Http",
-                $"收到滚动命令，commandId={commandId}，agent={AgentCatalog.ToWireValue(agent)}，deltaY={deltaY}，requestId={request.RequestId ?? "-"}");
+                $"收到滚动命令，commandId={commandId}，agent={AgentCatalog.ToWireValue(agent)}，source={agentSource}，deltaY={deltaY}，requestId={request.RequestId ?? "-"}");
             try
             {
                 ScrollCommandReceived?.Invoke(
@@ -213,15 +213,23 @@ public sealed class BridgeWebServer : IAsyncDisposable
             : Results.NotFound();
     }
 
-    private bool TryResolveAgent(string? requestedAgent, out AgentId agent)
+    private bool TryResolveAgent(string? requestedAgent, out AgentId agent, out string source)
     {
         if (string.IsNullOrWhiteSpace(requestedAgent))
         {
             agent = ActiveAgent;
+            source = "active";
             return true;
         }
 
-        return AgentCatalog.TryParse(requestedAgent, out agent);
+        if (AgentCatalog.TryParse(requestedAgent, out agent))
+        {
+            source = "explicit";
+            return true;
+        }
+
+        source = "invalid";
+        return false;
     }
 
     private static string LoadPhonePage()

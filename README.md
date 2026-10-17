@@ -72,6 +72,8 @@ Codex Phone Connect
 
 手机切换目标后，新请求使用新目标；已经进入队列的请求仍使用进入队列时的目标快照，避免切换造成竞态。程序不会读取、切换或识别 Codex Thread，也不会读取 Claude 会话数据。
 
+正式手机页会在外层桥接壳的 HTTP 边界给 `/api/jobs` 和 `/api/control/scroll` 补充显式 `agentId`。服务端优先使用这个请求级目标；没有 `agentId` 的旧客户端才回退到 `activeAgent`。因此 `activeAgent` 只负责页面状态和旧版兼容，不再是新请求路由的唯一依据。
+
 ### 手机打不开怎么办？
 
 1. 关闭手机 VPN、私人 DNS 和移动数据；
