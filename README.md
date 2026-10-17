@@ -134,7 +134,9 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 
 ## 项目状态与许可
 
-项目仍在迭代，当前版本和更新内容请查看[最新 Release](https://github.com/L3n3L/codex-phone-connect/releases)。目前仓库尚未添加许可证文件，因此公开可见不代表已授予复制、修改或分发许可；许可证需要作者确认后再补充。
+项目仍在迭代，当前版本和更新内容请查看[最新 Release](https://github.com/L3n3L/codex-phone-connect/releases)。项目原创代码与文档采用 [MIT License](LICENSE)，版权归 **L3n3L** 所有。
+
+第三方依赖、品牌名称与商标不包含在本项目授权范围内，仍受各自权利人的许可与条款约束。
 
 Codex Phone Connect 是独立社区项目，与 OpenAI、Anthropic 或其产品无隶属关系。产品名称和商标归各自权利人所有。
 
