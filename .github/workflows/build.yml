@@ -1,0 +1,33 @@
+name: Windows build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build WPF app
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore .\CodexPhoneConnect.Desktop.csproj
+
+      - name: Build
+        run: dotnet build .\CodexPhoneConnect.Desktop.csproj --configuration Release --no-restore
+

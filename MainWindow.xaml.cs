@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private const int Port = 8787;
     private const int WhMouseLl = 14;
     private const int WmLButtonDown = 0x0201;
+    private const int WmLButtonUp = 0x0202;
     private const uint GaRoot = 2;
 
     private readonly BridgeWebServer _server = new(Port);
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
     private nint _mouseHook;
     private CalibrationTarget? _pendingTarget;
     private AgentId _pendingAgent;
+    private CapturedCalibrationClick? _capturedCalibrationClick;
     private bool _settingsDirty;
 
     public MainWindow()
@@ -369,6 +371,20 @@ public partial class MainWindow : Window
 
     private nint MouseHookCallback(int code, nint wParam, nint lParam)
     {
+        if (code >= 0 && wParam == WmLButtonUp && _capturedCalibrationClick is { } capturedClick)
+        {
+            _capturedCalibrationClick = null;
+            BridgeLog.Info(
+                "Calibration",
+                $"已屏蔽校准点击释放，agent={AgentCatalog.ToWireValue(capturedClick.Agent)}，target={capturedClick.Target}");
+            Dispatcher.BeginInvoke(() => CompleteCalibration(
+                capturedClick.Agent,
+                capturedClick.Target,
+                capturedClick.Point,
+                capturedClick.TargetWindow));
+            return 1;
+        }
+
         if (code >= 0 && wParam == WmLButtonDown && _pendingTarget is not null)
         {
             var mouseData = Marshal.PtrToStructure<MsllHookStruct>(lParam);
@@ -400,7 +416,10 @@ public partial class MainWindow : Window
                     BridgeLog.Info(
                         "Calibration",
                         $"捕获 {definition.DisplayName} 点击，target={target}，x={point.X:F4}，y={point.Y:F4}");
-                    Dispatcher.BeginInvoke(() => CompleteCalibration(agent, target, point, targetWindow));
+                    _capturedCalibrationClick = new CapturedCalibrationClick(agent, target, point, targetWindow);
+                    BridgeLog.Info(
+                        "Calibration",
+                        $"已屏蔽校准点击按下，等待释放后完成，agent={definition.WireId}，target={target}");
                     return 1;
                 }
 
@@ -464,6 +483,7 @@ public partial class MainWindow : Window
         }
 
         _mouseProc = null;
+        _capturedCalibrationClick = null;
     }
 
     private static string? GetLanAddress()
@@ -505,6 +525,12 @@ public partial class MainWindow : Window
         Send,
         Scroll,
     }
+
+    private sealed record CapturedCalibrationClick(
+        AgentId Agent,
+        CalibrationTarget Target,
+        CalibrationPoint Point,
+        nint TargetWindow);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct PointStruct

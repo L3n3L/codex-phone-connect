@@ -1,0 +1,25 @@
+name: 功能建议
+description: 提出能让手机遥控桌面 AI 更好用的想法
+title: "[建议] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题？
+      placeholder: 描述当前操作中最不方便的部分。
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 你希望它如何工作？
+      placeholder: 描述理想的操作流程或结果。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充场景
+      description: 可附设备、浏览器或桌面应用版本等信息。
+    validations:
+      required: false

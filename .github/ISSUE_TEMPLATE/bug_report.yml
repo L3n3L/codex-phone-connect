@@ -1,0 +1,45 @@
+name: 问题反馈
+description: 报告 Codex Phone Connect 中可复现的问题
+title: "[问题] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 软件版本
+      description: 可在 Release 页面或程序文件信息中确认。
+      placeholder: 例如 v0.3.1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows 与目标应用
+      description: 请注明 Windows 版本，以及 Codex / ChatGPT Desktop 或 Claude Desktop。
+      placeholder: 例如 Windows 11 24H2 + Codex Desktop
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 按顺序描述你做了什么。
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果与实际结果
+      placeholder: 请描述哪里和预期不同。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志或截图
+      description: 提交前请遮盖用户名、IP 地址、窗口中的私人内容及其他敏感信息。
+    validations:
+      required: false
