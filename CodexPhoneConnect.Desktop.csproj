@@ -8,7 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CodexPhoneConnect</AssemblyName>
     <RootNamespace>CodexPhoneConnect</RootNamespace>
+    <Version>0.3.2</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\codex-phone-connect.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="LICENSE"
+             CopyToPublishDirectory="Always" />
     <Content Include="prototype\phone-scroll.html"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Always" />

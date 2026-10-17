@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="assets/codex-phone-connect-icon-512.png" width="136" alt="Codex Phone Connect 手机与灯神图标">
   <h1>手机控制 Codex 与 Claude Desktop</h1>
   <p><strong>把手机变成桌面 AI 的遥控器。</strong></p>
   <p>局域网直连，在手机上发送消息、滑动控制电脑上的聊天窗口。</p>
