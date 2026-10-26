@@ -63,51 +63,46 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="控制目标"
+                                   Grid.Column="0"
                                    VerticalAlignment="Center"
                                    Margin="6,0,18,0"
                                    FontSize="13"
                                    FontWeight="SemiBold" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="GptAgentButton"
-                                    Tag="gpt"
-                                    Height="36"
-                                    MinWidth="106"
-                                    Padding="10,5"
-                                    Click="GptAgentButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <Image x:Name="GptAgentIcon"
-                                           Width="18"
-                                           Height="18"
-                                           Margin="0,0,7,0"
-                                           Stretch="Uniform" />
-                                    <TextBlock Text="GPT" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="ClaudeAgentButton"
-                                    Tag="claude"
-                                    Height="36"
-                                    MinWidth="106"
-                                    Padding="10,5"
-                                    Margin="8,0,0,0"
-                                    Click="ClaudeAgentButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <Image x:Name="ClaudeAgentIcon"
-                                           Width="18"
-                                           Height="18"
-                                           Margin="0,0,7,0"
-                                           Stretch="Uniform" />
-                                    <TextBlock Text="Claude" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                        <TextBlock x:Name="ActiveAgentText"
-                                   Grid.Column="2"
-                                   VerticalAlignment="Center"
-                                   Style="{StaticResource SecondaryTextStyle}"
-                                   Margin="18,0,6,0" />
+                        <ItemsControl x:Name="AgentButtonsPanel"
+                                      Grid.Column="1"
+                                      VerticalAlignment="Center">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Tag="{Binding Definition.Id}"
+                                            Width="106"
+                                            Height="36"
+                                            Padding="8,5"
+                                            Margin="0,0,6,0"
+                                            Background="{Binding Background}"
+                                            BorderBrush="{Binding Border}"
+                                            Foreground="{Binding Foreground}"
+                                            Click="AgentButton_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="{Binding Icon}"
+                                                   Width="18"
+                                                   Height="18"
+                                                   Margin="0,0,6,0"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="{Binding Definition.DisplayName}"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </Grid>
                 </Border>
 

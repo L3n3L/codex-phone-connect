@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly BridgeJobQueue _jobQueue = new();
     private readonly NetworkConnectionMonitor _connectionMonitor = new(Port);
     private readonly Dictionary<string, ConnectionEntryViewModel> _connectionEntries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BitmapSource> _brandIcons = new(StringComparer.OrdinalIgnoreCase);
     private BridgeSettings _settings = new();
     private AgentId _selectedAgent;
     private LowLevelMouseProc? _mouseProc;
@@ -92,14 +93,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void GptAgentButton_Click(object sender, RoutedEventArgs e)
+    private void AgentButton_Click(object sender, RoutedEventArgs e)
     {
-        SelectAgent(AgentId.Gpt, markDirty: true);
-    }
-
-    private void ClaudeAgentButton_Click(object sender, RoutedEventArgs e)
-    {
-        SelectAgent(AgentId.Claude, markDirty: true);
+        if (sender is System.Windows.Controls.Button { Tag: AgentId agent })
+        {
+            SelectAgent(agent, markDirty: true);
+        }
     }
 
     private void InputPointButton_Click(object sender, RoutedEventArgs e)
@@ -274,9 +273,7 @@ public partial class MainWindow : Window
         _selectedAgent = agent;
         _settings.ActiveAgent = agent;
         _server.SetActiveAgent(agent);
-        ApplyAgentButtonState(GptAgentButton, AgentId.Gpt, agent == AgentId.Gpt);
-        ApplyAgentButtonState(ClaudeAgentButton, AgentId.Claude, agent == AgentId.Claude);
-        ActiveAgentText.Text = AgentCatalog.Get(agent).ProductName;
+        RenderAgentButtons();
         if (markDirty)
         {
             _settingsDirty = true;
@@ -286,29 +283,50 @@ public partial class MainWindow : Window
         BridgeLog.Info("UI", $"界面选择智能体：{AgentCatalog.ToWireValue(agent)}，dirty={_settingsDirty}");
     }
 
-    private void ApplyAgentButtonState(System.Windows.Controls.Button button, AgentId agent, bool selected)
+    private void RenderAgentButtons()
     {
-        button.Background = selected
-            ? agent == AgentId.Gpt
-                ? new SolidColorBrush(Color.FromRgb(232, 242, 241))
-                : new SolidColorBrush(Color.FromRgb(251, 238, 225))
-            : Brushes.White;
-        button.BorderBrush = selected
-            ? agent == AgentId.Gpt
-                ? new SolidColorBrush(Color.FromRgb(172, 207, 207))
-                : new SolidColorBrush(Color.FromRgb(231, 203, 175))
-            : (SolidColorBrush)FindResource("BorderBrush");
-        button.Foreground = selected
-            ? agent == AgentId.Gpt
-                ? new SolidColorBrush(Color.FromRgb(64, 105, 110))
-                : new SolidColorBrush(Color.FromRgb(155, 104, 64))
-            : (SolidColorBrush)FindResource("PrimaryTextBrush");
+        var neutralBorder = (Brush)FindResource("BorderBrush");
+        var neutralForeground = (Brush)FindResource("PrimaryTextBrush");
+        AgentButtonsPanel.ItemsSource = AgentCatalog.All.Select(definition =>
+        {
+            var selected = definition.Id == _selectedAgent;
+            return new AgentButtonOption(
+                definition,
+                _brandIcons[definition.IconPngAsset],
+                selected ? CreateSelectedBackground(definition) : Brushes.White,
+                selected ? CreateBrush(definition.SelectedBorder) : neutralBorder,
+                selected ? CreateBrush(definition.SelectedForeground) : neutralForeground);
+        }).ToArray();
     }
 
     private void LoadBrandIcons()
     {
-        GptAgentIcon.Source = LoadBrandIcon(AgentCatalog.Get(AgentId.Gpt).IconPngAsset);
-        ClaudeAgentIcon.Source = LoadBrandIcon(AgentCatalog.Get(AgentId.Claude).IconPngAsset);
+        foreach (var definition in AgentCatalog.All)
+        {
+            _brandIcons[definition.IconPngAsset] = LoadBrandIcon(definition.IconPngAsset);
+        }
+    }
+
+    private static Brush CreateBrush(string color)
+    {
+        var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Brush CreateSelectedBackground(AgentDefinition definition)
+    {
+        if (string.Equals(definition.SelectedBackground, definition.SelectedBackgroundEnd, StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateBrush(definition.SelectedBackground);
+        }
+
+        var brush = new LinearGradientBrush(
+            (Color)ColorConverter.ConvertFromString(definition.SelectedBackground)!,
+            (Color)ColorConverter.ConvertFromString(definition.SelectedBackgroundEnd)!,
+            35);
+        brush.Freeze();
+        return brush;
     }
 
     private static BitmapImage LoadBrandIcon(string assetName)

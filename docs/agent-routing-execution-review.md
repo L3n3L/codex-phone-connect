@@ -1,5 +1,7 @@
 # 手机到 GPT / Claude 的目标路由对接执行复盘
 
+> 本文记录双目标路由实现。当前 WorkBuddy 第三目标复用同一显式 `agentId` 路由与串行队列，见 [`workbuddy-integration-review.md`](workbuddy-integration-review.md)。
+
 更新时间：2026-10-17
 
 ## 1. 本次变更结论

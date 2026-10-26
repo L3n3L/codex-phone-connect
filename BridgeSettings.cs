@@ -16,9 +16,16 @@ public sealed class BridgeSettings
 
     public AgentProfileSettings Claude { get; set; } = new();
 
+    public AgentProfileSettings WorkBuddy { get; set; } = new();
+
     public AgentProfileSettings GetProfile(AgentId agent)
     {
-        return agent == AgentId.Claude ? Claude : Gpt;
+        return agent switch
+        {
+            AgentId.Claude => Claude,
+            AgentId.WorkBuddy => WorkBuddy,
+            _ => Gpt,
+        };
     }
 }
 
@@ -111,10 +118,12 @@ public sealed class BridgeSettingsStore
             BridgeSettings settings = JsonSerializer.Deserialize<BridgeSettings>(json, JsonOptions) ?? new BridgeSettings();
             settings.Gpt ??= new AgentProfileSettings();
             settings.Claude ??= new AgentProfileSettings();
+            settings.WorkBuddy ??= new AgentProfileSettings();
             BridgeLog.Info(
                 "Settings",
-                $"已加载双智能体配置，active={AgentCatalog.ToWireValue(settings.ActiveAgent)}，"
-                + $"gptInput={settings.Gpt.InputPoint is not null}，claudeInput={settings.Claude.InputPoint is not null}");
+                $"已加载多智能体配置，active={AgentCatalog.ToWireValue(settings.ActiveAgent)}，"
+                + $"gptInput={settings.Gpt.InputPoint is not null}，claudeInput={settings.Claude.InputPoint is not null}，"
+                + $"workbuddyInput={settings.WorkBuddy.InputPoint is not null}");
             return settings;
         }
         catch (Exception exception)

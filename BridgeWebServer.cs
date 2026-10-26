@@ -14,6 +14,8 @@ public sealed class BridgeWebServer : IAsyncDisposable
             ["openai-symbol.png"] = ("openai-symbol.png", "image/png"),
             ["claude.svg"] = ("claude.svg", "image/svg+xml"),
             ["claude.png"] = ("claude.png", "image/png"),
+            ["workbuddy.svg"] = ("workbuddy.svg", "image/svg+xml"),
+            ["workbuddy.png"] = ("workbuddy.png", "image/png"),
         };
 
     private readonly int _port;
@@ -252,7 +254,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
 
         var closingBody = page.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
         return closingBody >= 0
-            ? page.Insert(closingBody, PhoneAgentShell.Markup)
-            : page + PhoneAgentShell.Markup;
+            ? page.Insert(closingBody, PhoneAgentShell.BuildMarkup())
+            : page + PhoneAgentShell.BuildMarkup();
     }
 }

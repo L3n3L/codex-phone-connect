@@ -1,4 +1,4 @@
-# 手机遥控 GPT / Claude 滚动：设计
+# 手机遥控桌面 AI：设计
 
 ## 总体链路
 
@@ -17,7 +17,7 @@ BridgeJobQueue（单线程）
 AgentInputAdapter
     │ 激活目标窗口 → 定位聊天区域 → SendInput 鼠标滚轮
     ▼
-电脑 GPT / Claude 已绑定窗口
+电脑端已绑定的目标窗口
 ```
 
 ## 模块边界
@@ -44,7 +44,7 @@ AgentInputAdapter
 }
 ```
 
-`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。`agentId` 应为 `gpt` 或 `claude`；正式手机页会在外层 HTTP 边界显式补充它，未传时暂时兼容旧页面并使用当前目标。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
+`deltaY` 使用手机相邻触摸位置的像素差：负数表示手机上滑，正数表示手机下滑。`agentId` 应为 `AgentCatalog` 中已登记的目标（当前为 `gpt`、`claude` 或 `workbuddy`）；正式手机页会在外层 HTTP 边界显式补充它，未传时暂时兼容旧页面并使用当前目标。Bridge 将其限制在安全范围内，并反向换算为 Windows 鼠标滚轮量，使手机上滑时内容向下、手机下滑时内容向上。
 
 正式页面实际发送的是相邻 `pointermove` 的增量。页面在滑动超过 36px 后开始发送，并保持最多一个请求在途；请求返回前产生的新增量进入浏览器端累加器，随后合并成下一条请求。这样能保持接近实时，又不会因为局域网延迟形成请求队列。
 
@@ -59,20 +59,25 @@ AgentInputAdapter
 
 ## 坐标和输入
 
-保存相对于 Codex 顶层客户区的比例坐标：
+保存相对于各目标桌面窗口客户区的比例坐标：
 
 ```json
 {
-  "activeAgent": 0,
-  "gpt": {
-    "inputPoint": { "x": 0.50, "y": 0.92 },
-    "sendPoint": { "x": 0.94, "y": 0.92 },
-    "scrollPoint": { "x": 0.55, "y": 0.45 }
+  "ActiveAgent": 0,
+  "Gpt": {
+    "InputPoint": { "X": 0.50, "Y": 0.92 },
+    "SendPoint": { "X": 0.94, "Y": 0.92 },
+    "ScrollPoint": { "X": 0.55, "Y": 0.45 }
   },
-  "claude": {
-    "inputPoint": null,
-    "sendPoint": null,
-    "scrollPoint": null
+  "Claude": {
+    "InputPoint": null,
+    "SendPoint": null,
+    "ScrollPoint": null
+  },
+  "WorkBuddy": {
+    "InputPoint": null,
+    "SendPoint": null,
+    "ScrollPoint": null
   }
 }
 ```

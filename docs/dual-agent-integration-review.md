@@ -1,5 +1,7 @@
 # 双智能体对接复盘与执行方案
 
+> 历史记录：本文记录 GPT / Claude 双目标版本的设计。当前 WorkBuddy 第三目标的实现与验证状态见 [`workbuddy-integration-review.md`](workbuddy-integration-review.md)。
+
 更新时间：2026-10-17
 
 ## 1. 本轮目标

@@ -6,17 +6,31 @@ namespace CodexPhoneConnect;
 /// </summary>
 public static class PhoneAgentShell
 {
-    public const string Markup = """
+    public static string BuildMarkup()
+    {
+        var buttons = string.Join(Environment.NewLine, AgentCatalog.All.Select(agent =>
+        {
+            var id = System.Net.WebUtility.HtmlEncode(agent.WireId);
+            var name = System.Net.WebUtility.HtmlEncode(agent.DisplayName);
+            var icon = System.Net.WebUtility.HtmlEncode(agent.IconSvgAsset);
+            return $$"""
+        <button type="button" data-agent="{{id}}" aria-label="选择 {{name}}" aria-pressed="false">
+          <img src="/assets/brand/{{icon}}" alt="" />
+          <span>{{name}}</span>
+        </button>
+        """;
+        }));
+        var agents = System.Text.Json.JsonSerializer.Serialize(AgentCatalog.All.Select(agent => new
+        {
+            id = agent.WireId,
+            name = agent.DisplayName,
+        }));
+
+        return """
       <div id="agent-switcher" aria-label="选择智能体">
-        <button type="button" data-agent="gpt" aria-label="选择 GPT">
-          <img src="/assets/brand/openai-symbol.svg" alt="" />
-          <span>GPT</span>
-        </button>
-        <button type="button" data-agent="claude" aria-label="选择 Claude">
-          <img src="/assets/brand/claude.svg" alt="" />
-          <span>Claude</span>
-        </button>
+        {{AGENT_BUTTONS}}
       </div>
+      <script>const agentCatalog = {{AGENT_CATALOG}};</script>
       <style>
         /* 这些变量直接对应 prototype/agent-style-preview.html 的手机样本。 */
         html, body {
@@ -42,8 +56,22 @@ public static class PhoneAgentShell
           --send-ink: #171715;
         }
 
+        html[data-agent-theme="workbuddy"],
+        body[data-agent-theme="workbuddy"] {
+          color-scheme: light;
+          --phone-bg: #fbfefd;
+          --phone-ink: #263b35;
+          --phone-muted: #82938c;
+          --phone-line: #dcebe5;
+          --particle-glow: rgba(74, 204, 158, .22);
+          --send-bg: #218d74;
+          --send-ink: #ffffff;
+        }
+
         html[data-agent-theme="gpt"],
-        body[data-agent-theme="gpt"] {
+        body[data-agent-theme="gpt"],
+        html[data-agent-theme="workbuddy"],
+        body[data-agent-theme="workbuddy"] {
           color-scheme: light;
           background: var(--phone-bg) !important;
           color: var(--phone-ink) !important;
@@ -77,6 +105,20 @@ public static class PhoneAgentShell
         body[data-agent-theme="claude"] #field-canvas {
           /* 让现有粒子整体进入样本的暖橙色域，不改变粒子运动和触摸响应。 */
           filter: sepia(.54) saturate(1.75) hue-rotate(328deg) brightness(1.13) contrast(1.05);
+        }
+
+        body[data-agent-theme="workbuddy"] #field-canvas {
+          /* 品牌主题只通过画布滤镜着色，不改变原粒子的运动和触摸算法。 */
+          filter: hue-rotate(24deg) saturate(1.32) brightness(1.1);
+        }
+
+        body[data-agent-theme="workbuddy"] .remote-field::after {
+          background: radial-gradient(
+            ellipse at 50% 48%,
+            rgba(66, 211, 163, .25) 0%,
+            rgba(104, 224, 180, .14) 38%,
+            rgba(176, 239, 211, .07) 58%,
+            transparent 74%);
         }
 
         body[data-agent-theme] .field-hint { z-index: 2; color: var(--phone-muted) !important; }
@@ -118,12 +160,17 @@ public static class PhoneAgentShell
           transition: background 520ms ease, color 520ms ease, transform 160ms ease;
         }
 
+        body[data-agent-theme="workbuddy"] .composer > button {
+          background: linear-gradient(135deg, #39c99f 0%, #15977c 100%) !important;
+        }
+
         #agent-switcher {
           position: fixed;
           z-index: 20;
-          top: max(15px, env(safe-area-inset-top));
-          left: 15px;
-          display: inline-flex;
+          top: max(12px, env(safe-area-inset-top));
+          left: 12px;
+          right: 12px;
+          display: flex;
           gap: 3px;
           padding: 3px;
           border: 1px solid var(--phone-line);
@@ -136,20 +183,20 @@ public static class PhoneAgentShell
         }
 
         #agent-switcher button {
-          width: 77px;
-          min-width: 77px;
+          flex: 1 1 0;
+          min-width: 0;
           height: 34px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 0;
+          gap: 4px;
+          padding: 0 2px;
           border: 0;
           border-radius: 7px;
           background: transparent;
           color: var(--phone-muted);
           font: inherit;
-          font-size: 12px;
+          font-size: 11px;
           pointer-events: auto;
           cursor: pointer;
           transition: background 220ms ease, color 220ms ease, transform 160ms ease;
@@ -162,6 +209,12 @@ public static class PhoneAgentShell
 
         body[data-agent-theme="claude"] #agent-switcher button[data-agent="gpt"] img { filter: brightness(0) invert(1); }
         body[data-agent-theme="claude"] #agent-switcher button[data-agent="claude"] img { filter: saturate(.85) brightness(1.05); }
+        body[data-agent-theme="claude"] #agent-switcher button[data-agent="workbuddy"] img { filter: saturate(.85) brightness(1.05); }
+
+        body[data-agent-theme] .connection {
+          top: max(58px, calc(env(safe-area-inset-top) + 58px));
+          right: 15px;
+        }
       </style>
       <script>
         (() => {
@@ -172,7 +225,10 @@ public static class PhoneAgentShell
           const composerInput = document.querySelector('.composer textarea');
           const remoteField = document.getElementById('remote-field');
           const fieldHint = document.querySelector('.field-hint');
-          const state = { selectedAgent: 'gpt', statusKnown: false, userSelected: false };
+          const defaultAgent = agentCatalog[0]?.id || 'gpt';
+          const knownAgents = new Set(agentCatalog.map((agent) => agent.id));
+          const agentNames = Object.fromEntries(agentCatalog.map((agent) => [agent.id, agent.name]));
+          const state = { selectedAgent: defaultAgent, statusKnown: false, userSelected: false };
 
           // The frozen page still calls /api/jobs and /api/control/scroll without
           // an agentId. Keep that page unchanged and add the explicit target at
@@ -205,14 +261,14 @@ public static class PhoneAgentShell
           };
 
           const render = (agent, fromUser = false) => {
-            const selected = agent === 'claude' ? 'claude' : 'gpt';
+            const selected = knownAgents.has(agent) ? agent : defaultAgent;
             if (fromUser) state.userSelected = true;
             state.selectedAgent = selected;
             root.dataset.agent = selected;
             document.documentElement.dataset.agentTheme = selected;
             document.body.dataset.agentTheme = selected;
-            const targetName = selected === 'claude' ? 'Claude' : 'Codex';
-            if (connection) connection.textContent = selected === 'claude' ? 'Claude · 已连接' : 'GPT · 已连接';
+            const targetName = agentNames[selected];
+            if (connection) connection.textContent = `${targetName} · 已连接`;
             if (composerInput) composerInput.placeholder = `输入要发送给 ${targetName} 的内容`;
             if (remoteField) remoteField.setAttribute('aria-label', `${targetName} 滑动遥控区`);
             if (fieldHint) fieldHint.textContent = `上下滑动控制 ${targetName}`;
@@ -235,8 +291,8 @@ public static class PhoneAgentShell
             } catch (_) {
               try {
                 const response = await fetch('/api/status');
-                if (response.ok) render((await response.json()).activeAgent || 'gpt');
-              } catch (_) { render('gpt'); }
+                if (response.ok) render((await response.json()).activeAgent || defaultAgent);
+              } catch (_) { render(defaultAgent); }
             } finally {
               buttons.forEach((button) => { button.disabled = false; });
             }
@@ -250,12 +306,15 @@ public static class PhoneAgentShell
             .then((response) => response.ok ? response.json() : null)
             .then((status) => {
               if (status) {
-                render(status.activeAgent || 'gpt');
+                render(status.activeAgent || defaultAgent);
                 state.statusKnown = true;
               }
             })
             .catch(() => {});
         })();
       </script>
-      """;
+      """
+        .Replace("{{AGENT_BUTTONS}}", buttons, StringComparison.Ordinal)
+        .Replace("{{AGENT_CATALOG}}", agents, StringComparison.Ordinal);
+    }
 }
