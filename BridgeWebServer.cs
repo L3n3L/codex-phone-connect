@@ -18,12 +18,12 @@ public sealed class BridgeWebServer : IAsyncDisposable
 
     private readonly int _port;
     private WebApplication? _application;
+    private string[] _addresses = [];
     private int _activeAgent = (int)AgentId.Gpt;
 
     public BridgeWebServer(int port)
     {
         _port = port;
-        Address = $"http://电脑地址:{_port}";
     }
 
     public event EventHandler<SendJobReceivedEventArgs>? JobReceived;
@@ -32,13 +32,13 @@ public sealed class BridgeWebServer : IAsyncDisposable
 
     public event EventHandler<ActiveAgentChangedEventArgs>? ActiveAgentChanged;
 
-    public string Address { get; private set; }
+    public string Address => Volatile.Read(ref _addresses).FirstOrDefault() ?? $"http://电脑地址:{_port}";
 
     public AgentId ActiveAgent => (AgentId)Volatile.Read(ref _activeAgent);
 
-    public void SetAddress(string address)
+    public void SetAddresses(IEnumerable<string> addresses)
     {
-        Address = address;
+        Volatile.Write(ref _addresses, addresses.Distinct(StringComparer.Ordinal).ToArray());
     }
 
     public void SetActiveAgent(AgentId agent)
@@ -86,11 +86,16 @@ public sealed class BridgeWebServer : IAsyncDisposable
         });
 
         application.MapGet("/", () => Results.Content(LoadPhonePage(), "text/html; charset=utf-8"));
-        application.MapGet("/api/status", () => Results.Ok(new BridgeStatus(
-            "running",
-            true,
-            Address,
-            AgentCatalog.ToWireValue(ActiveAgent))));
+        application.MapGet("/api/status", () =>
+        {
+            var addresses = Volatile.Read(ref _addresses);
+            return Results.Ok(new BridgeStatus(
+                "running",
+                true,
+                addresses.FirstOrDefault() ?? $"http://电脑地址:{_port}",
+                AgentCatalog.ToWireValue(ActiveAgent),
+                addresses));
+        });
         application.MapGet("/assets/brand/{assetName}", (string assetName) => ServeBrandAsset(assetName));
 
         application.MapPost("/api/control/agent", (AgentSelectionRequest request) =>

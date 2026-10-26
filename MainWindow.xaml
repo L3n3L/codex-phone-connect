@@ -3,12 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Codex Phone Connect"
         Width="640"
-        Height="650"
+        SizeToContent="Height"
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="True"
+        SizeChanged="Window_SizeChanged"
         WindowStartupLocation="CenterScreen">
     <Border Background="{StaticResource PageBackgroundBrush}"
             BorderBrush="{StaticResource BorderBrush}"
@@ -41,7 +42,11 @@
                 </Grid>
             </Border>
 
-            <StackPanel Grid.Row="1" Margin="28,22,28,20">
+            <ScrollViewer x:Name="MainScrollViewer"
+                          Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="28,22,28,20">
                 <TextBlock Text="设置点击位置"
                            FontSize="22"
                            FontWeight="SemiBold"
@@ -187,42 +192,78 @@
                     </Grid>
                 </Border>
 
-                <TextBlock Text="手机连接"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,10" />
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="手机连接"
+                               FontSize="14"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="ServerStateText"
+                               Grid.Column="1"
+                               Text="服务未启动"
+                               Style="{StaticResource SecondaryTextStyle}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right"
+                               Margin="16,0,0,0"
+                               TextWrapping="Wrap" />
+                </Grid>
 
-                <Border Background="{StaticResource PanelBackgroundBrush}"
+                <ItemsControl x:Name="ConnectionEntries">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource PanelBackgroundBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="11"
+                                    Padding="12"
+                                    MinHeight="112"
+                                    Margin="0,0,0,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Connection.Label}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Connection.Url}"
+                                                   FontFamily="Cascadia Mono"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,5,0,0" />
+                                        <TextBlock Text="{Binding Connection.InterfaceName}"
+                                                   Style="{StaticResource SecondaryTextStyle}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,5,0,0" />
+                                    </StackPanel>
+                                    <Image Source="{Binding QrCode}"
+                                           Grid.Column="1"
+                                           Width="96"
+                                           Height="96"
+                                           Margin="18,0,0,0"
+                                           Stretch="Uniform"
+                                           RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                           SnapsToDevicePixels="True"
+                                           AutomationProperties.Name="{Binding Connection.Url}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border x:Name="NoConnectionsPanel"
+                        Background="{StaticResource PanelBackgroundBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="1"
                         CornerRadius="11"
-                        Padding="12"
-                        Height="112">
+                        Padding="16">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="同一 Wi-Fi 打开" Style="{StaticResource SecondaryTextStyle}" />
-                            <TextBlock x:Name="AddressText"
-                                       Text="http://电脑地址:8787"
-                                       FontFamily="Cascadia Mono"
-                                       FontSize="12"
-                                       Margin="0,5,0,0" />
-                            <TextBlock x:Name="ServerStateText"
-                                       Text="服务未启动"
-                                       Style="{StaticResource SecondaryTextStyle}"
-                                       Margin="0,5,0,0" />
-                        </StackPanel>
-                        <Image x:Name="ConnectionQr"
-                               Grid.Column="1"
-                               Width="84"
-                               Height="84"
-                               Margin="18,0,0,0"
-                               Stretch="Uniform"
-                               SnapsToDevicePixels="True"
-                               Visibility="Collapsed" />
+                        <TextBlock x:Name="ConnectionEmptyText"
+                                   Text="正在查找连接地址…"
+                                   Style="{StaticResource SecondaryTextStyle}" />
                     </Grid>
                 </Border>
 
@@ -244,6 +285,7 @@
                             IsEnabled="False" />
                 </Grid>
             </StackPanel>
+            </ScrollViewer>
         </Grid>
     </Border>
 </Window>

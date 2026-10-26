@@ -20,7 +20,12 @@ public sealed record ScrollCommandAccepted(string CommandId, string Status);
 
 public sealed record AgentSelectionAccepted(string AgentId, string Status);
 
-public sealed record BridgeStatus(string State, bool Ready, string Address, string ActiveAgent);
+public sealed record BridgeStatus(
+    string State,
+    bool Ready,
+    string Address,
+    string ActiveAgent,
+    IReadOnlyList<string> Addresses);
 
 public abstract record BridgeInputCommand(string CommandId, AgentId Agent);
 

@@ -1,13 +1,9 @@
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using QRCoder;
 
 namespace CodexPhoneConnect;
 
@@ -23,6 +19,8 @@ public partial class MainWindow : Window
     private readonly BridgeSettingsStore _settingsStore = new();
     private readonly AgentInputAdapter _inputAdapter = new();
     private readonly BridgeJobQueue _jobQueue = new();
+    private readonly NetworkConnectionMonitor _connectionMonitor = new(Port);
+    private readonly Dictionary<string, ConnectionEntryViewModel> _connectionEntries = new(StringComparer.Ordinal);
     private BridgeSettings _settings = new();
     private AgentId _selectedAgent;
     private LowLevelMouseProc? _mouseProc;
@@ -31,10 +29,12 @@ public partial class MainWindow : Window
     private AgentId _pendingAgent;
     private CapturedCalibrationClick? _capturedCalibrationClick;
     private bool _settingsDirty;
+    private bool _isClosing;
 
     public MainWindow()
     {
         InitializeComponent();
+        MainScrollViewer.MaxHeight = Math.Max(240, SystemParameters.WorkArea.Height - 72);
         _settings = _settingsStore.Load();
         _selectedAgent = _settings.ActiveAgent;
         LoadBrandIcons();
@@ -54,18 +54,22 @@ public partial class MainWindow : Window
         try
         {
             await _server.StartAsync();
-            var lanAddress = GetLanAddress();
-            var address = $"http://{lanAddress ?? "电脑地址"}:{Port}";
-            _server.SetAddress(address);
-            AddressText.Text = address;
-            UpdateConnectionQr(address, lanAddress is not null);
+            if (_isClosing)
+            {
+                await _server.DisposeAsync();
+                return;
+            }
+
+            _connectionMonitor.AddressesChanged += ConnectionMonitor_AddressesChanged;
+            _connectionMonitor.Start();
             ServerStateText.Text = "服务运行中";
             _jobQueue.Start(ProcessCommandAsync);
-            BridgeLog.Info("UI", $"桥接服务已就绪，局域网地址：{address}");
+            BridgeLog.Info("UI", "桥接服务已就绪，自动发现所有可用连接地址");
         }
         catch (Exception exception)
         {
             ServerStateText.Text = $"服务启动失败：{exception.Message}";
+            ConnectionEmptyText.Text = "服务未启动，暂无连接二维码";
             BridgeLog.Error("UI", "桥接服务启动失败", exception);
         }
     }
@@ -73,6 +77,9 @@ public partial class MainWindow : Window
     private async void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         BridgeLog.Info("UI", "开始关闭主窗口");
+        _isClosing = true;
+        _connectionMonitor.AddressesChanged -= ConnectionMonitor_AddressesChanged;
+        _connectionMonitor.Dispose();
         RemoveMouseHook();
         try
         {
@@ -316,30 +323,42 @@ public partial class MainWindow : Window
         return image;
     }
 
-    private void UpdateConnectionQr(string address, bool isReachableAddress)
+    private void ConnectionMonitor_AddressesChanged(object? sender, ConnectionAddressesChangedEventArgs e)
     {
-        if (!isReachableAddress)
+        _ = Dispatcher.BeginInvoke(new Action(() =>
         {
-            ConnectionQr.Visibility = Visibility.Collapsed;
-            BridgeLog.Warning("UI", "没有找到可用于二维码的局域网地址");
-            return;
+            if (!_isClosing)
+            {
+                UpdateConnectionEntries(e.Connections);
+            }
+        }));
+    }
+
+    private void UpdateConnectionEntries(IReadOnlyList<NetworkConnection> connections)
+    {
+        try
+        {
+            // Reuse unchanged QR images when another adapter connects or disconnects.
+            var entries = connections.Select(connection =>
+                _connectionEntries.TryGetValue(connection.Url, out var existing) && existing.Connection == connection
+                    ? existing
+                    : ConnectionEntryViewModel.Create(connection)).ToArray();
+
+            _connectionEntries.Clear();
+            foreach (var entry in entries)
+            {
+                _connectionEntries.Add(entry.Connection.Url, entry);
+            }
+
+            _server.SetAddresses(connections.Select(connection => connection.Url));
+            ConnectionEntries.ItemsSource = entries;
+            NoConnectionsPanel.Visibility = entries.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ConnectionEmptyText.Text = "暂无可用连接地址";
         }
-
-        using var generator = new QRCodeGenerator();
-        using var qrData = generator.CreateQrCode(address, QRCodeGenerator.ECCLevel.M);
-        var pngBytes = new PngByteQRCode(qrData).GetGraphic(8);
-
-        using var stream = new MemoryStream(pngBytes);
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.StreamSource = stream;
-        image.EndInit();
-        image.Freeze();
-
-        ConnectionQr.Source = image;
-        ConnectionQr.Visibility = Visibility.Visible;
-        BridgeLog.Info("UI", $"二维码已生成，地址={address}");
+        catch (Exception exception)
+        {
+            BridgeLog.Error("UI", "更新连接地址和二维码失败", exception);
+        }
     }
 
     private void BeginCalibration(CalibrationTarget target)
@@ -484,37 +503,6 @@ public partial class MainWindow : Window
 
         _mouseProc = null;
         _capturedCalibrationClick = null;
-    }
-
-    private static string? GetLanAddress()
-    {
-        return NetworkInterface.GetAllNetworkInterfaces()
-            .Where(network => network.OperationalStatus == OperationalStatus.Up
-                              && network.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .Select(network =>
-            {
-                var properties = network.GetIPProperties();
-                var address = properties.UnicastAddresses
-                    .Select(unicast => unicast.Address)
-                    .FirstOrDefault(candidate => candidate.AddressFamily == AddressFamily.InterNetwork
-                                                 && !IPAddress.IsLoopback(candidate)
-                                                 && candidate.GetAddressBytes()[0] != 169);
-                var hasDefaultGateway = properties.GatewayAddresses.Any(gateway =>
-                    gateway.Address.AddressFamily == AddressFamily.InterNetwork
-                    && !IPAddress.IsLoopback(gateway.Address));
-
-                return new
-                {
-                    Address = address,
-                    HasDefaultGateway = hasDefaultGateway,
-                    IsWireless = network.NetworkInterfaceType == NetworkInterfaceType.Wireless80211,
-                };
-            })
-            .Where(candidate => candidate.Address is not null)
-            .OrderByDescending(candidate => candidate.HasDefaultGateway)
-            .ThenByDescending(candidate => candidate.IsWireless)
-            .Select(candidate => candidate.Address!.ToString())
-            .FirstOrDefault();
     }
 
     private delegate nint LowLevelMouseProc(int code, nint wParam, nint lParam);

@@ -2,7 +2,7 @@
   <img src="assets/codex-phone-connect-icon-512.png" width="136" alt="Codex Phone Connect 手机与灯神图标">
   <h1>手机控制 Codex 与 Claude Desktop</h1>
   <p><strong>把手机变成桌面 AI 的遥控器。</strong></p>
-  <p>局域网直连，在手机上发送消息、滑动控制电脑上的聊天窗口。</p>
+  <p>通过局域网或 USB 网络共享直连，在手机上发送消息、滑动控制电脑上的聊天窗口。</p>
   <p>
     <a href="https://github.com/L3n3L/codex-phone-connect/releases/latest"><strong>下载 Windows 版</strong></a>
     ·
@@ -18,7 +18,7 @@
   </p>
 </div>
 
-**Codex Phone Connect** 是一个 Windows 桌面桥接工具：手机浏览器通过同一局域网连接电脑，把输入和滑动操作转交给已校准的 **Codex / ChatGPT Desktop** 或 **Claude Desktop** 窗口。手机负责遥控，回复仍显示在电脑上的原生应用里。
+**Codex Phone Connect** 是一个 Windows 桌面桥接工具：手机浏览器通过局域网或 Android USB 网络共享连接电脑，把输入和滑动操作转交给已校准的 **Codex / ChatGPT Desktop** 或 **Claude Desktop** 窗口。手机负责遥控，回复仍显示在电脑上的原生应用里。
 
 > 不读取聊天历史，不创建或切换会话，不经过云端中继。消息只用于局域网内的桌面输入。
 
@@ -45,12 +45,13 @@
 - **窗口变化更稳**：校准点按目标窗口客户区比例保存，不依赖屏幕绝对坐标。
 - **请求目标明确**：发送或滚动请求带上目标标识，再进入单线程队列；切换目标不会改写已排队请求的目标。
 - **日志便于排查**：按天记录服务运行信息，默认不记录消息正文。
+- **多入口同时连接**：自动展示 USB、Wi-Fi 和有线局域网地址及二维码，网络变化后自动刷新。
 
 ## 工作方式
 
 ```mermaid
 flowchart LR
-    Phone[手机浏览器] -->|同一局域网 HTTP| Bridge[Windows 桥接程序]
+    Phone[手机浏览器] -->|局域网或 USB 网络共享 HTTP| Bridge[Windows 桥接程序]
     Bridge -->|明确的目标 + 单线程队列| Target{已选桌面窗口}
     Target --> GPT[Codex / ChatGPT Desktop]
     Target --> Claude[Claude Desktop]
@@ -65,7 +66,7 @@ flowchart LR
 
 1. 从 [最新 Windows x64 版本](https://github.com/L3n3L/codex-phone-connect/releases/latest)下载并解压。
 2. 运行 `CodexPhoneConnect.exe`。发布包自包含 .NET 运行时，无需单独安装 .NET。
-3. 确保手机和电脑可以在局域网内互相访问，用手机扫描桌面窗口中的二维码。
+3. 手机和电脑通过可互访的局域网或 Android USB 网络共享连接，扫描桌面窗口中对应入口的二维码。
 4. 在电脑端选择 GPT 或 Claude，依次设置该目标的输入框、发送按钮、滚动区域，然后保存。
 5. 在手机页面选择同一个目标，发送消息或滑动粒子区域。
 
@@ -88,10 +89,16 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 
 - Windows 10 / 11 x64
 - Codex / ChatGPT Desktop 或 Claude Desktop
-- 手机与电脑连接到允许设备互访的网络
+- 手机与电脑连接到允许设备互访的局域网，或开启 Android USB 网络共享
 - 默认端口：`8787`
 
-如果手机打不开地址，先关闭手机 VPN / 移动数据，避开访客 Wi-Fi，并检查路由器是否启用了 AP/客户端隔离。**不要把 8787 端口直接暴露到公网**；本地桥接服务面向可信局域网，不提供公网中继或账号认证。
+桌面窗口自动展示当前 USB、Wi-Fi 和有线局域网的连接地址，每个地址都有二维码。多个入口可同时使用，无需切换；插拔 USB 或更换网络后会自动刷新，常见 VPN 和虚拟机网卡不展示。地址出现表示电脑具有该网络地址，不代表手机已连通。
+
+使用 Android USB 网络共享时，用数据线连接手机和电脑，在手机设置中打开“USB 网络共享”，然后扫描“USB 网络共享”入口的二维码。手机浏览器访问的是电脑的 USB 网卡地址，不需要开启 USB 调试。手机系统、VPN 和 Windows 防火墙仍可能影响可达性，需要以手机实际打开页面为准。
+
+拔掉 USB 后，该入口会消失。如果改用 Wi-Fi，需要让手机和电脑接入可互访的局域网，再打开对应地址；已打开的 USB 页面不会自动迁移到 Wi-Fi。
+
+如果手机打不开地址，检查手机/电脑 VPN、Windows 防火墙和选择的入口；使用 Wi-Fi 时避开访客网络，并检查路由器是否启用了 AP/客户端隔离。**不要把 8787 端口直接暴露到公网**；本地桥接服务面向可信局域网，不提供公网中继或账号认证。
 
 ## 隐私与安全边界
 
@@ -146,10 +153,11 @@ Codex Phone Connect 是独立社区项目，与 OpenAI、Anthropic 或其产品�
 <details>
   <summary>English</summary>
 
-**Codex Phone Connect** is a Windows WPF bridge that lets your phone send text and control scrolling in Codex / ChatGPT Desktop or Claude Desktop over a local network.
+**Codex Phone Connect** is a Windows WPF bridge that lets your phone send text and control scrolling in Codex / ChatGPT Desktop or Claude Desktop over a local network or Android USB tethering.
 
 - Calibrate the input, send, and scroll points for each desktop target.
 - Phone requests carry an explicit target and run through a single queue.
+- Available USB, Wi-Fi and Ethernet addresses each have a QR code and refresh automatically when networks change.
 - No cloud relay, conversation-history access, or reply sync to the phone.
 - Windows 10/11 x64. Download the [latest release](https://github.com/L3n3L/codex-phone-connect/releases/latest).
 - Do not expose the default port `8787` to the public internet.
