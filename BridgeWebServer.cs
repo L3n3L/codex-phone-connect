@@ -16,6 +16,7 @@ public sealed class BridgeWebServer : IAsyncDisposable
             ["claude.png"] = ("claude.png", "image/png"),
             ["workbuddy.svg"] = ("workbuddy.svg", "image/svg+xml"),
             ["workbuddy.png"] = ("workbuddy.png", "image/png"),
+            ["deepseek-harness.png"] = ("deepseek-harness.png", "image/png"),
         };
 
     private readonly int _port;

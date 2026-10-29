@@ -2,7 +2,7 @@
 
 ## 目标
 
-手机只作为 Codex / ChatGPT Desktop、Claude Desktop 或 WorkBuddy 的远程输入和滚动控制器。聊天内容继续显示在电脑桌面窗口中，手机不读取、不渲染聊天记录，也不接入任何内部会话。
+手机只作为 Codex / ChatGPT Desktop、Claude Desktop、WorkBuddy 或 DeepSeek Harness 的远程输入和滚动控制器。聊天内容继续显示在电脑桌面窗口中，手机不读取、不渲染聊天记录，也不接入任何内部会话。
 
 ## 用户故事
 

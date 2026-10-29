@@ -1,6 +1,6 @@
 # Codex 手机电脑桥接对接复盘
 
-> 说明：本文保留早期单 Codex 链路记录。双目标历史设计见 [`dual-agent-integration-review.md`](dual-agent-integration-review.md)；当前还支持 WorkBuddy，见 [`workbuddy-integration-review.md`](workbuddy-integration-review.md)。
+> 说明：本文保留早期单 Codex 链路记录。双目标历史设计见 [`dual-agent-integration-review.md`](dual-agent-integration-review.md)；当前新增目标见 [`workbuddy-integration-review.md`](workbuddy-integration-review.md) 和 [`deepseek-harness-integration-review.md`](deepseek-harness-integration-review.md)。
 
 更新时间：2026-10-06
 

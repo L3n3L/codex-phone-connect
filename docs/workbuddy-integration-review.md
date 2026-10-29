@@ -1,5 +1,7 @@
 # WorkBuddy 智能体接入对接复盘
 
+> 本文记录 WorkBuddy 接入。之后加入的 DeepSeek Harness（DSH）见 [`deepseek-harness-integration-review.md`](deepseek-harness-integration-review.md)。
+
 更新时间：2026-10-26
 
 ## 目标

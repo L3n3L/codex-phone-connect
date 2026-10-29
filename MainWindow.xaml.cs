@@ -292,7 +292,7 @@ public partial class MainWindow : Window
             var selected = definition.Id == _selectedAgent;
             return new AgentButtonOption(
                 definition,
-                _brandIcons[definition.IconPngAsset],
+                _brandIcons[definition.IconDesktopAsset],
                 selected ? CreateSelectedBackground(definition) : Brushes.White,
                 selected ? CreateBrush(definition.SelectedBorder) : neutralBorder,
                 selected ? CreateBrush(definition.SelectedForeground) : neutralForeground);
@@ -303,7 +303,7 @@ public partial class MainWindow : Window
     {
         foreach (var definition in AgentCatalog.All)
         {
-            _brandIcons[definition.IconPngAsset] = LoadBrandIcon(definition.IconPngAsset);
+            _brandIcons[definition.IconDesktopAsset] = LoadBrandIcon(definition.IconDesktopAsset);
         }
     }
 

@@ -6,7 +6,7 @@
 
 - 先搜索现有 Issues，避免重复讨论。
 - 大型功能或会改变手机交互的改动，请先开 Issue 讨论范围和验收方式。
-- 当前接入目标包括 Codex / ChatGPT Desktop、Claude Desktop 与 WorkBuddy；新目标必须真实验证窗口识别、独立三点校准和发送/滚动路径。
+- 当前接入目标包括 Codex / ChatGPT Desktop、Claude Desktop、WorkBuddy 与 DeepSeek Harness；新目标必须真实验证窗口识别、独立三点校准和发送/滚动路径。
 - 不要提交日志、配置文件、访问令牌、个人 IP 或聊天内容。
 
 ## 本地验证

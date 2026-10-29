@@ -1,6 +1,6 @@
 # Implementation Plan
 
-当前目标为 Codex / ChatGPT Desktop、Claude Desktop 与 WorkBuddy。目标共用协议和串行队列，但各自保存窗口校准点；新增目标信息由 `AgentCatalog` 提供。
+当前目标为 Codex / ChatGPT Desktop、Claude Desktop、WorkBuddy 与 DeepSeek Harness。目标共用协议和串行队列，但各自保存窗口校准点；新增目标信息由 `AgentCatalog` 提供。
 
 - [x] 1. 固化需求和非目标
   - 明确手机不显示聊天记录，只发送输入和滚动控制。

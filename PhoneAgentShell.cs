@@ -12,7 +12,7 @@ public static class PhoneAgentShell
         {
             var id = System.Net.WebUtility.HtmlEncode(agent.WireId);
             var name = System.Net.WebUtility.HtmlEncode(agent.DisplayName);
-            var icon = System.Net.WebUtility.HtmlEncode(agent.IconSvgAsset);
+            var icon = System.Net.WebUtility.HtmlEncode(agent.IconPhoneAsset);
             return $$"""
         <button type="button" data-agent="{{id}}" aria-label="选择 {{name}}" aria-pressed="false">
           <img src="/assets/brand/{{icon}}" alt="" />
@@ -68,10 +68,24 @@ public static class PhoneAgentShell
           --send-ink: #ffffff;
         }
 
+        html[data-agent-theme="dsh"],
+        body[data-agent-theme="dsh"] {
+          color-scheme: light;
+          --phone-bg: #fcfcfd;
+          --phone-ink: #383a3e;
+          --phone-muted: #898b90;
+          --phone-line: #e2e3e6;
+          --particle-glow: rgba(120, 123, 130, .2);
+          --send-bg: #5b5e65;
+          --send-ink: #ffffff;
+        }
+
         html[data-agent-theme="gpt"],
         body[data-agent-theme="gpt"],
         html[data-agent-theme="workbuddy"],
-        body[data-agent-theme="workbuddy"] {
+        body[data-agent-theme="workbuddy"],
+        html[data-agent-theme="dsh"],
+        body[data-agent-theme="dsh"] {
           color-scheme: light;
           background: var(--phone-bg) !important;
           color: var(--phone-ink) !important;
@@ -121,6 +135,20 @@ public static class PhoneAgentShell
             transparent 74%);
         }
 
+        body[data-agent-theme="dsh"] #field-canvas {
+          /* DSH 的中性灰配色只改画布滤镜，不触碰粒子运动和触摸算法。 */
+          filter: grayscale(.9) saturate(.16) contrast(1.04) brightness(1.08);
+        }
+
+        body[data-agent-theme="dsh"] .remote-field::after {
+          background: radial-gradient(
+            ellipse at 50% 48%,
+            rgba(83, 86, 93, .23) 0%,
+            rgba(145, 148, 154, .14) 40%,
+            rgba(204, 206, 210, .07) 60%,
+            transparent 75%);
+        }
+
         body[data-agent-theme] .field-hint { z-index: 2; color: var(--phone-muted) !important; }
         body[data-agent-theme] .connection {
           top: max(15px, env(safe-area-inset-top));
@@ -162,6 +190,10 @@ public static class PhoneAgentShell
 
         body[data-agent-theme="workbuddy"] .composer > button {
           background: linear-gradient(135deg, #39c99f 0%, #15977c 100%) !important;
+        }
+
+        body[data-agent-theme="dsh"] .composer > button {
+          background: linear-gradient(135deg, #858990 0%, #555960 100%) !important;
         }
 
         #agent-switcher {

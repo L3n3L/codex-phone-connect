@@ -18,13 +18,13 @@
   </p>
 </div>
 
-**Codex Phone Connect** 是一个 Windows 桌面桥接工具：手机浏览器通过局域网或 Android USB 网络共享连接电脑，把输入和滑动操作转交给已校准的 **Codex / ChatGPT Desktop**、**Claude Desktop** 或 **腾讯 WorkBuddy** 窗口。手机负责遥控，回复仍显示在电脑上的原生应用里。
+**Codex Phone Connect** 是一个 Windows 桌面桥接工具：手机浏览器通过局域网或 Android USB 网络共享连接电脑，把输入和滑动操作转交给已校准的 **Codex / ChatGPT Desktop**、**Claude Desktop**、**腾讯 WorkBuddy** 或 **DeepSeek Harness（DSH）** 窗口。手机负责遥控，回复仍显示在电脑上的原生应用里。
 
 > 不读取聊天历史，不创建或切换会话，不经过云端中继。消息只用于局域网内的桌面输入。
 
 ## 实机界面
 
-电脑端分别校准目标应用的输入框、发送按钮和滚动区域；手机端可切换控制 GPT、Claude 或 WorkBuddy，并通过粒子区域遥控桌面滚动。
+电脑端分别校准目标应用的输入框、发送按钮和滚动区域；手机端可切换控制 GPT、Claude、WorkBuddy 或 DSH，并通过粒子区域遥控桌面滚动。
 
 <p align="center">
   <img src="assets/screenshots/desktop-calibration.png" width="820" alt="Windows 桌面端校准窗口，展示各桌面目标的独立校准设置">
@@ -41,7 +41,7 @@
 
 - **手机发消息**：在手机输入文字，发送到当前选中的桌面智能体。
 - **手机控滚动**：在手机的粒子交互区域上下滑，电脑上的聊天窗口同步滚动；手机不需要展示聊天记录。
-- **各目标分别校准**：GPT、Claude 和 WorkBuddy 各自保存输入框、发送按钮和滚动区域的位置。
+- **各目标分别校准**：GPT、Claude、WorkBuddy 和 DSH 各自保存输入框、发送按钮和滚动区域的位置。
 - **窗口变化更稳**：校准点按目标窗口客户区比例保存，不依赖屏幕绝对坐标。
 - **请求目标明确**：发送或滚动请求带上目标标识，再进入单线程队列；切换目标不会改写已排队请求的目标。
 - **日志便于排查**：按天记录服务运行信息，默认不记录消息正文。
@@ -56,6 +56,7 @@ flowchart LR
     Target --> GPT[Codex / ChatGPT Desktop]
     Target --> Claude[Claude Desktop]
     Target --> WorkBuddy[腾讯 WorkBuddy]
+    Target --> DSH[DeepSeek Harness]
     Phone -. 输入文字或滑动 .-> Bridge
 ```
 
@@ -68,7 +69,7 @@ flowchart LR
 1. 从 [最新 Windows x64 版本](https://github.com/L3n3L/codex-phone-connect/releases/latest)下载并解压。
 2. 运行 `CodexPhoneConnect.exe`。发布包自包含 .NET 运行时，无需单独安装 .NET。
 3. 手机和电脑通过可互访的局域网或 Android USB 网络共享连接，扫描桌面窗口中对应入口的二维码。
-4. 在电脑端选择 GPT、Claude 或 WorkBuddy，依次设置该目标的输入框、发送按钮、滚动区域，然后保存。
+4. 在电脑端选择 GPT、Claude、WorkBuddy 或 DSH，依次设置该目标的输入框、发送按钮、滚动区域，然后保存。
 5. 在手机页面选择同一个目标，发送消息或滑动粒子区域。
 
 ### 从源码运行
@@ -83,13 +84,13 @@ dotnet run --project .\CodexPhoneConnect.Desktop.csproj
 ### 校准小提示
 
 - 开始校准后，点击目标桌面应用中的对应位置；桥接窗口会暂时隐藏。
-- GPT、Claude 和 WorkBuddy 的三个位置分别保存，互不覆盖。
+- GPT、Claude、WorkBuddy 和 DSH 的三个位置分别保存，互不覆盖。
 - 如果改变了应用布局、显示器或 Windows 缩放比例，重新校准对应目标。
 
 ## 环境与网络
 
 - Windows 10 / 11 x64
-- Codex / ChatGPT Desktop、Claude Desktop 或腾讯 WorkBuddy 桌面版
+- Codex / ChatGPT Desktop、Claude Desktop、腾讯 WorkBuddy 或 DeepSeek Harness 桌面版
 - 手机与电脑连接到允许设备互访的局域网，或开启 Android USB 网络共享
 - 默认端口：`8787`
 
@@ -154,7 +155,7 @@ Codex Phone Connect 是独立社区项目，与 OpenAI、Anthropic 或其产品�
 <details>
   <summary>English</summary>
 
-**Codex Phone Connect** is a Windows WPF bridge that lets your phone send text and control scrolling in Codex / ChatGPT Desktop, Claude Desktop, or Tencent WorkBuddy over a local network or Android USB tethering.
+**Codex Phone Connect** is a Windows WPF bridge that lets your phone send text and control scrolling in Codex / ChatGPT Desktop, Claude Desktop, Tencent WorkBuddy, or DeepSeek Harness over a local network or Android USB tethering.
 
 - Calibrate the input, send, and scroll points for each desktop target.
 - Phone requests carry an explicit target and run through a single queue.

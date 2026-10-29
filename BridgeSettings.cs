@@ -18,12 +18,15 @@ public sealed class BridgeSettings
 
     public AgentProfileSettings WorkBuddy { get; set; } = new();
 
+    public AgentProfileSettings DeepSeekHarness { get; set; } = new();
+
     public AgentProfileSettings GetProfile(AgentId agent)
     {
         return agent switch
         {
             AgentId.Claude => Claude,
             AgentId.WorkBuddy => WorkBuddy,
+            AgentId.DeepSeekHarness => DeepSeekHarness,
             _ => Gpt,
         };
     }
@@ -119,11 +122,13 @@ public sealed class BridgeSettingsStore
             settings.Gpt ??= new AgentProfileSettings();
             settings.Claude ??= new AgentProfileSettings();
             settings.WorkBuddy ??= new AgentProfileSettings();
+            settings.DeepSeekHarness ??= new AgentProfileSettings();
             BridgeLog.Info(
                 "Settings",
                 $"已加载多智能体配置，active={AgentCatalog.ToWireValue(settings.ActiveAgent)}，"
                 + $"gptInput={settings.Gpt.InputPoint is not null}，claudeInput={settings.Claude.InputPoint is not null}，"
-                + $"workbuddyInput={settings.WorkBuddy.InputPoint is not null}");
+                + $"workbuddyInput={settings.WorkBuddy.InputPoint is not null}，"
+                + $"dshInput={settings.DeepSeekHarness.InputPoint is not null}");
             return settings;
         }
         catch (Exception exception)

@@ -5,6 +5,7 @@ public enum AgentId
     Gpt,
     Claude,
     WorkBuddy,
+    DeepSeekHarness,
 }
 
 public sealed record AgentDefinition(
@@ -13,8 +14,8 @@ public sealed record AgentDefinition(
     string DisplayName,
     string ProductName,
     IReadOnlyList<string> ProcessNames,
-    string IconSvgAsset,
-    string IconPngAsset,
+    string IconPhoneAsset,
+    string IconDesktopAsset,
     string SelectedBackground,
     string SelectedBackgroundEnd,
     string SelectedBorder,
@@ -58,6 +59,15 @@ public static class AgentCatalog
                 "workbuddy.svg",
                 "workbuddy.png",
                 "#F0FCF7", "#DDF7E9", "#9BD8C8", "#287966"),
+            [AgentId.DeepSeekHarness] = new(
+                AgentId.DeepSeekHarness,
+                "dsh",
+                "DSH",
+                "DeepSeek Harness",
+                new[] { "DeepSeek Harness" },
+                "deepseek-harness.png",
+                "deepseek-harness.png",
+                "#F0F5FA", "#DFEAF5", "#B8CADB", "#425C74"),
         };
 
     public static IReadOnlyList<AgentDefinition> All { get; } =
@@ -91,6 +101,13 @@ public static class AgentCatalog
         if (string.Equals(value, "workbuddy", StringComparison.OrdinalIgnoreCase))
         {
             agent = AgentId.WorkBuddy;
+            return true;
+        }
+
+        if (string.Equals(value, "dsh", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "deepseek-harness", StringComparison.OrdinalIgnoreCase))
+        {
+            agent = AgentId.DeepSeekHarness;
             return true;
         }
 
