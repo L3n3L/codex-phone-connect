@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CodexPhoneConnect</AssemblyName>
     <RootNamespace>CodexPhoneConnect</RootNamespace>
-    <Version>0.3.3</Version>
+    <Version>0.3.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets\codex-phone-connect.ico</ApplicationIcon>
   </PropertyGroup>
@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="assets\wechat-donate-qr.png" />
     <Content Include="LICENSE"
              CopyToPublishDirectory="Always" />
     <Content Include="prototype\phone-scroll.html"

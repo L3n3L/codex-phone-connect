@@ -163,6 +163,21 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void GitHubButton_Click(object sender, RoutedEventArgs e)
+    {
+        const string repositoryUrl = "https://github.com/L3n3L/codex-phone-connect";
+        try
+        {
+            Process.Start(new ProcessStartInfo(repositoryUrl) { UseShellExecute = true });
+            BridgeLog.Info("UI", "打开 GitHub 项目页面");
+        }
+        catch (Exception exception)
+        {
+            HintText.Text = "无法打开 GitHub 项目";
+            BridgeLog.Error("UI", "打开 GitHub 项目页面失败", exception);
+        }
+    }
+
     private void Server_JobReceived(object? sender, SendJobReceivedEventArgs e)
     {
         BridgeLog.Info(
